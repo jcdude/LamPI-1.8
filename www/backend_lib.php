@@ -96,6 +96,7 @@ function load_database()
 	$settings = array();
 	$controllers = array();
 	$brands = array();
+	$weather = array();
 	
 	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
 	if ($mysqli->connect_errno) {
@@ -160,6 +161,13 @@ function load_database()
 	}
 	mysqli_free_result($query);
 	
+	$sqlCommand = "SELECT id, location, brand, address, channel, temperature, humidity, windspeed, winddirection   FROM weather";
+	$query = mysqli_query($mysqli, $sqlCommand) or die (mysqli_error());
+	while ($row = mysqli_fetch_assoc($query)) { 
+		$brands[] = $row ;
+	}
+	mysqli_free_result($query);
+	
 	$config ['rooms']   = $rooms;
 	$config ['devices'] = $devices;
 	$config ['scenes']  = $scenes;
@@ -168,6 +176,7 @@ function load_database()
 	$config ['settings']= $settings;
 	$config ['controllers']= $controllers;
 	$config ['brands']= $brands;
+	$config ['weather']= $weather;
 	
 	mysqli_close($mysqli);
 	$apperr = "";										// No error
@@ -947,7 +956,11 @@ function send_2_daemon($cmd)
 
 
 // ******************** DEVICE HANDLING FUNCTIONS ********************************
-// Although I have written some wiringPI coe myself, I must rely on shell programs
+//
+// XXX NOTE: Device functions are handled by LamPI-receiver program from now ...
+// Functions below become obsolete
+//
+// Although I have written some wiringPI code myself, I must rely on shell programs
 // written by others as well (see the sources in ~/src/xxxxx for more detail.
 //
 //	kaku_cmd

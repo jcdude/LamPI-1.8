@@ -242,7 +242,7 @@ int read_socket_and_transmit(int sockfd)
 	{
 		timestamp = millis();
 		if (verbose == 1) printf("PING\n");
-		sprintf(buf,"%d,PING",++socktcnt);			// Keep_Alive and check for connection
+		sprintf(buf,"%d,PING",++socktcnt%1000);		// Keep_Alive and check for connection
 			
 		if (write(sockfd, buf, strlen(buf)) == -1) {
 			perror("Error writing to socket\n");

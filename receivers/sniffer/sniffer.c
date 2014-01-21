@@ -362,6 +362,9 @@ int check_n_write_socket(char *binary, char *chkbuf , int binary_count)
  * Therefore, reading such message can be a little bit more tricky as we do not know
  * how far to read ahead is enough to have potentially received a whole message.
  * 
+ * As far as I can see, every message is sent 2 times, interval is 1 minute between
+ * sending new values from the sensor.
+ *
  * PULSE defines are found in the LamPI.h include file
  *********************************************************************************/
 int wt440h(int p_length)
@@ -432,8 +435,8 @@ int wt440h(int p_length)
 				else {
 					statistics[I_WT440H][I_MSGS_DISCARD]++;
 					if (debug) {
-						printf("WT440H:: Failed: index %d, last 2 bits read: %4d %4d \n", binary_count,
-							pulse_array[ j % MAXDATASIZE], pulse_array[(j+1) % MAXDATASIZE]
+						printf("WT440H:: Failed: index %d, last 2 pulses read: %4d %4d \n", binary_count,
+							pulse_array[j % MAXDATASIZE], pulse_array[(j+1) % MAXDATASIZE]
 						);
 					}
 					pcnt = 0;
@@ -503,20 +506,22 @@ int wt440h(int p_length)
 				if (dflg)
 				{
 					sprintf(snd_buf, 
-					 "{\"tcnt\":\"%d\",\"action\":\"weather\",\"type\":\"json\",\"address\":\"%d\",\"channel\":\"%d\",\"temperature\":\"%d.%d\",\"humidity\":\"%d\"}", 
+					 "{\"tcnt\":\"%d\",\"action\":\"weather\",\"brand\":\"wt440h\",\"type\":\"json\",\"address\":\"%d\",\"channel\":\"%d\",\"temperature\":\"%d.%d\",\"humidity\":\"%d\"}", 
 						socktcnt%1000,address,channel,temperature/10,temperature%10,humidity);
 					
 					// Do NOT use check_n_write_socket as weather stations will not
-					// send too many repeating
+					// send too many repeating messages (1 or 2 will come in one trasmission)
+					//
 					if (write(sockfd, snd_buf, strlen(snd_buf)) == -1) {
 						fprintf(stderr,"socket write error\n");
 					}	
 					
-					if (verbose) printf("Socket Sent Buffer: %s\n",snd_buf);
+					if (verbose) printf("Buffer sent to Socket: %s\n",snd_buf);
 				}
 				else
 				{
-					sprintf(snd_buf, "tcnt: %d, Address: %d, Channel: %d, Temp: %d\n", socktcnt%1000, address, channel, temperature);
+					sprintf(snd_buf, "tcnt: %d, Address: %d, Channel: %d, Temp: %d\n", 
+							socktcnt%1000, address, channel, temperature);
 					if (verbose) printf("Send Buffer: %s\n",snd_buf);
 				}
 				
@@ -1013,10 +1018,10 @@ int action(int p_length)
 				
 				socktcnt++;
 				// Do communication to the daemon of print output
-				// Use jSson mesage format
+				// Use jSson mesage format, but encoding is raw as we use message=ics
 				
 				sprintf(snd_buf, 
-					 "{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"json\",\"message\":\"!A%dD%dF%d\"}", 
+					 "{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dF%d\"}", 
 							socktcnt%1000,address,unit,onoff);
 							
 				//sprintf(snd_buf, "%d,!A%dD%dF%d", socktcnt%1000, address, unit, onoff);

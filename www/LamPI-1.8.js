@@ -6,6 +6,7 @@
 //
 // Version 1.6, Nov 10, 2013. Implemented connections, started with websockets option next (!) to .ajax calls.
 // Version 1.7, Dec 10, 2013. Work on the mobile version of the program
+// Version 1.8, Jan 18, 2014. Start support for sensors
 //
 // This is the code to animate the front-end of the application. The main screen is divided in 3 regions:
 //
@@ -99,6 +100,7 @@ var s_room_id =1;										// Screen room_id
 var s_scene_id =1;
 var s_timer_id = 1;
 var s_handset_id = 1;
+var s_weather_id = 1;
 var s_setting_id = "1";
 var s_recorder = '';									// will make the recording of all user actions in a scene. 
 var s_recording = 0;									// Set to 1 to record lamp commands
@@ -111,6 +113,7 @@ var max_scenes = 16;									// max nr of scenes. ICS-1000 has 20
 var max_devices = 16;									// max nr. of devices per room. ICS-1000 has 6
 var max_timers = 16;
 var max_handsets = 8;
+var max_weather = 4;									// Maximum number of weather stations
 
 // Actually, sum of timers and scenes <= 20 for ICS-1000
 
@@ -1269,26 +1272,30 @@ function init_websockets() {
 			console.log("Websocket:: error. State is: "+state);
 			message("websocket:: error: "+state,1);
 		};
-		w_sock.onmessage = function(ev) {
+		
+		// This is one of the most important functions of this program: It receives asynchronous
+		// messages from the daemon and needs to process them for the GUI.
+		// ALL(!) Messages are in json format, bu type field defines whether the content is also
+		// in json or in ICS format (for historical and backward compatibility reasons).
+		//
+		w_sock.onmessage = function(ev) 
+		{
 			var ff = ev.data.substr(1);
 			//alert("Websocket:: Received a Message: "+ff);
 			//console.log("Websocket:: message");
 			
 			var rcv = JSON.parse(ev.data);		//PHP sends Json data
-			// First level of the json message
-			var tcnt   = rcv.tcnt; 				//message transaction counter
-			var type   = rcv.type;				// type, eg raw
-			var action = rcv.action; 			//message text
-			var gaddr  = rcv.gaddr;				// Group address of the receiver
-			var uaddr  = rcv.uaddr;				// Unit address of the receiver device
-			// var val   = rcv.val;
-			var brand  = rcv.brand;				// Brand of the receiver device
-			var msg    = rcv.message;			// The message in ICS format e.g. "!RxDyFz"
+			
+			// First level of the json message is equal for all
+			var tcnt   = rcv.tcnt; 				// message transaction counter
+			var type   = rcv.type;				// type of content part, eg raw or json
+			var action = rcv.action; 			// message text: handset || sensor || gui || weather
 			
 			// Now we need to parse the message and take action.
 			// Best is to build a separate parse function for messages
 			// and route them to the approtiate screen
-			switch (action) {
+			switch (action) 
+			{	
 				// ack messages ae just confirmations and may be further discarded
 				case "ack":
 					if (debug>1) {
@@ -1304,45 +1311,68 @@ function init_websockets() {
 				// reflected on the dashboard immediately.
 				// Changes in settings are less urgent and frequent
 				case "upd":
+				case "gui":
+				
 					message("action: "+action+", tcnt: "+tcnt+", mes: "+msg+", type: "+type);
-					// if message is coded in json, first decode into json structure
+					// if content is coded in json, decode rest of message
 					switch (type) {
 						case 'json': 
 							console.log("onmessage:: read upd message. Type is: "+type+". Json is not supported yet");
+							var gaddr  = rcv.gaddr;				// Group address of the receiver
+							var uaddr  = rcv.uaddr;				// Unit address of the receiver device
+							var val   = rcv.val;
+							var brand  = rcv.brand;				// Brand of the receiver device
 						break;
+						
 						case 'raw':
-							console.log("onmessage:: read upd message. Type is: "+type);	
+							var msg    = rcv.message;		// The message in ICS format e.g. "!RxDyFz"
+							console.log("onmessage:: read upd message. Type is: "+type);
+							var pars = parse_int(msg);	// Split into array of integers
+														// This function works for normal switches AND dimmers
+														// Only for dimmers string is longer !RxxDxxFdPxx
+							// As we receive updates for devices
+							if ( msg.substr(0,2) == "!R" ){
+								var room = pars[0];
+								var device = pars[1];
+						
+								// Now we need to check if it's a dim or F1 command. If dim
+								// we need not use value 1 but last used value in devices!
+								// XXX
+								var val;
+								if (msg.search("FdP") > -1) {
+									val = pars[2];
+								}
+								else {
+									val = pars[2];
+								}
+						
+								var ind = find_device(room, "D"+device);
+								console.log("onmessage:: room: "+room+", device: "+device+", val: "+val+", ind: "+ind);
+								devices[ind]['val']=val;
+								if ((room == s_room_id) && (s_screen == 'room')) {
+									activate_room(s_room_id);
+								}
+							}//if
 						break;
+						
 						default: 
 							console.log("onmessage:: read upd message. Unknown type: "+type);
 					}
-					var pars = parse_int(msg);			// Split into array of integers
-														// This function works for normal switches AND dimmers
-														// Only for dimmers string is longer !RxxDxxFdPxx
 					
-					// As we receive updates for devices
-					if ( msg.substr(0,2) == "!R" ){
-						var room = pars[0];
-						var device = pars[1];
-						
-						// Now we need to check if it's a dim or F1 command. If dim
-						// we need not use value 1 but last used value in devices!
-						// XXX
-						var val;
-						if (msg.search("FdP") > -1) {
-							val = pars[2];
-						}
-						else {
-							val = pars[2];
-						}
-						
-						var ind = find_device(room, "D"+device);
-						console.log("onmessage:: room: "+room+", device: "+device+", val: "+val+", ind: "+ind);
-						devices[ind]['val']=val;
-						if ((room == s_room_id) && (s_screen == 'room')) {
-							activate_room(s_room_id);
-						}
-					}
+					
+					
+				break;
+				
+				case 'weather':
+					var address = rcv.address;
+					var channel = rcv.channel;
+					var temperature = rcv.temperature;
+					var humidity = rcv.humidity;
+					message("Weather:: addr: "+address+", chl: "+channel+", temp: "
+							+temperature+", humi: "+humidity+"%");
+					console.log("Weather:: addr: "+address+", chl: "+channel+", temp: "
+							+temperature+", humi: "+humidity+"%");
+					
 				break;
 				
 				default:
@@ -5033,12 +5063,14 @@ function message_device(action, controller_cmd)
 	} // if ics
 	
 	// Else, if not using phonegap, and controller == raspberry, use websockets 
+	//
+	//
 	else if (( phonegap != 1 ) && (settings[1]['val'] == 1 ))
 	{
 		console.log("websockets:: sending "+controller_cmd);
 		var data = {
 			tcnt: ++w_tcnt%1000,
-			action: "kaku",	
+			action: "gui",	
 			message: controller_cmd
 		};
 		

@@ -24,7 +24,7 @@
 	$dbname = "dorm";						// This one is not easy to guess
 	$dbuser = "coco";
 	$dbpass = "coco";
-	$dbhost = "192.168.2.11";				// Not yet implemented?
+	$dbhost = "192.168.2.11";				// standard "localhost"
 
 // Are we still debugging or testing or operational? 
 // $_GET is not allowed in operational!!

@@ -11,11 +11,12 @@ require_once( './backend_lib.php' );
 //				as an option next (!) to .ajax calls.
 // Version 1.6. Nov 10, 2013 Enhanced support for receivers, added new devices
 // Version 1.7, Dec 06, 2013 Redo of jQuery Mobile for version jqm version 1.4
+// Version 1.8, Jan 18, 2014 Added temperature sensor support
 //
 // Copyright, Use terms, Distribution etc.
 // =========================================================================================
-//  This software is licensed under GNU license as detailed in the root directory
-//  of this distribution and on http://www.gnu.org/licenses/gpl.txt
+//  This software is licensed under GNU General Pulic License as detailed in the 
+//  root directory of this distribution and on http://www.gnu.org/licenses/gpl.txt
 //
 //  The above copyright notice and this permission notice shall be included in
 //  all copies or substantial portions of the Software.
@@ -52,7 +53,8 @@ $scenes=  array();
 $devices= array();
 $settings=array();
 $handsets=array();
-$brands  =array();
+$brands = array();
+$weather= array();
 
 /** --------------------------------------------------------------------------------------
  * Logging class:
@@ -159,6 +161,7 @@ function clientInSameSubnet($client_ip=false,$server_ip=false) {
 class Queue {
 	
 	private $q_list = [];
+	
 	// Insert based on timing. This takes extra time initially, but makes our live later easier
 	// We know then that all actions in queue are sorted on time, first coming soonest
 	public function q_insert($item) {
@@ -174,7 +177,7 @@ class Queue {
 			$this->q_list[$i] = $this->q_list[$i-1] ;
 		}
 		$this->q_list[$i] = $item;
-		if ($debug>1) $log->lwrite("q_insert:: Splicing queue at position: ".$i);
+		if ($debug>2) $log->lwrite("q_insert:: Splicing queue at position: ".$i);
 	}
 	
 	// Print the items in the queue
@@ -1066,8 +1069,7 @@ function get_parse()
 * and parse it for commands. Commands may either be events for the run Queue
 * or changes to the database/settings that will influence the timer
 * 
-* XXX This function needs to be extended so it can parse json too
-* XXX This function might be extended to handle handsets and pilight also for example
+* XXX This function could/needs to be extended so it can parse json too
 *
 * Commands:
 *	!RxDyFz, where x is room number 1-16, y is device number 0-31 and z is
@@ -1168,6 +1170,7 @@ function message_parse($cmd) {
 					// insert a F0 OFF command for every device in the queue
 					$item = array(
     					'scene' => "",
+						'action' => "gui",
     					'cmd'   => "!R".$room.$devices[$i]['id']."F0",
 						'secs'  => time()
    					);
@@ -1184,6 +1187,7 @@ function message_parse($cmd) {
 			$log->lwrite("parse:: Device OFF:: Room: ".$room.", Dev: ".$dev.", Val: ".$value);
 			$item = array(
     			'scene' => "",
+				'action' => "gui",
     			'cmd'   => $cmd,
 				'secs'  => time()
    			);
@@ -1195,6 +1199,7 @@ function message_parse($cmd) {
 			$log->lwrite("parse:: Device ON:: Room: ".$room.", Dev: ".$dev.", Val: ".$value);
 			$item = array(
     			'scene' => "",
+				'action' => "gui",
     			'cmd'   => $cmd,
 				'secs'  => time()
    			);
@@ -1206,6 +1211,7 @@ function message_parse($cmd) {
 			$log->lwrite("parse:: Device Dim:: Room: ".$room.", Dev: ".$dev.", Val: ".substr($value,2));
 			$item = array(
     			'scene' => "",
+				'action' => "gui",
     			'cmd'   => $cmd,
 				'secs'  => time()
    			);
@@ -1260,6 +1266,7 @@ function message_parse($cmd) {
 					// we'll have to implement something like a timeer through cron or so
 					$item = array(
     					'scene' => $handsets[$i]['name'],
+						'action' => "gui",
     					'cmd'   => $splits[$j],
 						'secs'  => ($hrs*3600)+($mins*60)+$secs+ $tim
    					);
@@ -1300,6 +1307,7 @@ function message_parse($cmd) {
 			$log->lwrite("parse:: Device OFF:: Address: ".$address.", Dev: ".$dev.", Val: ".$value);
 			$item = array(
     			'scene' => "",
+				'action' => "gui",
     			'cmd'   => $cmd,
 				'secs'  => time()
    			);
@@ -1311,6 +1319,7 @@ function message_parse($cmd) {
 			$log->lwrite("parse:: Device ON:: Address: ".$address.", Dev: ".$dev.", Val: ".$value);
 			$item = array(
     			'scene' => "",
+				'action' => "gui",
     			'cmd'   => $cmd,
 				'secs'  => time()
    			);
@@ -1352,7 +1361,7 @@ set_time_limit();							// NO execution time limit imposed
 ob_implicit_flush();
 
 $log = new Logging();						// Logging class initialization
-$weather = new Logging();
+$wlog = new Logging();						// Weather Log
 
 $queue = new Queue();
 $sock = new Sock();
@@ -1360,7 +1369,7 @@ $dlist = new Device();
 
 // set path and name of log file (optional)
 $log->lfile('/home/pi/log/LamPI-daemon.log');
-$weather->lfile('/home/pi/log/LamPI-weather.log');
+$wlog->lfile('/home/pi/log/LamPI-weather.log');
 
 
 
@@ -1452,6 +1461,7 @@ $handsets = $config['handsets'];
 $brands = $config['brands'];
 $settings = $config['settings'];
 $controllers = $config['controllers'];
+$weather = $config['weather'];
 
 $time_last_run = time();							// Last time we checked the queue. Initial to current time
 
@@ -1515,12 +1525,20 @@ while (true):
 
 	while ( ($data = $sock->s_recv() ) != -1 )
 	{
-		if ($debug>1) $log->lwrite("main:: s_recv returned ".count($data)." elements" );
+		// The data structure read is decoded into a human readible string. jSOn or raw
+		//
+		if ($debug>1) $log->lwrite("main:: s_recv returned jSOn with ".count($data)." elements" );
 		
-		// check for json message (array), always at least 3 fields.
+		// Once we receive first message, read for more messages later, but without!! a timeout
+		if ( $sock->s_wait(0) == -1) {
+			$log->lwrite("main:: Failure to set wait (time=0) on socket: ");
+		}
+		
+		// check for json message format which is an array, always at least 3 fields.
 		// whereare a regular raw message contains one string only
-		if (count($data) > 1) {	
-			
+		if (count($data) > 1) 
+		{	
+			// Print the fields in the jSon message
 			if ($debug>0) {
 				$msg = "";
 				foreach ($data as $key => $value) {
@@ -1530,44 +1548,82 @@ while (true):
 				$log->lwrite("main:: Receiving json msg: <".$msg.">");
 			}
 			
-			// Compose reply
+			// Compose ACK reply for the client that sent us this message.
+			// At this moment we use the raw message format in message ...
 			$tcnt = $data['tcnt'];						// Must be present in every communication
 			$reply = array (
 				'tcnt' => $tcnt."",
-				'action' => "ack",
 				'type' => 'raw',
+				'action' => "ack",
 				'message' => "OK"
 			);
 			if ( false === ($tmp = json_encode($reply)) ) {
 				$log->lwrite("main:: error json_encode reply: <".$reply['tcnt'].",".$reply['action'].">");
 			} // QQQ
-			$answer = $sock->s_encode($tmp);
+			
+			$answer = $sock->s_encode($tmp);			// Websocket encode
 			if ($debug>0) 
 				$log->lwrite("main:: json reply data: <".$tmp."> len: ".strlen($tmp).":".strlen($answer));
 			
-			// Take action on the message based on the action of the message
-			switch ($data['action']) {
-				case "handset":
-					// For compatibility with raw message format
+			// Take action on the message based on the action field of the message
+			switch ($data['action']) 
+			{
+				case "gui":
+					// GUI message, probably in ICS coding
+					// For compatibility with raw message format, we just use ICS format
+					// NOTE that we have full json support implemented in LamPI-x.y.js, but NOT tested
 					$cmd = $data['message'];
+					message_parse($cmd);
 				break;
+				
+				case "handset":
+					// For compatibility with raw message format, we just use ICS format
+					// to encode all content in a message field.
+					$cmd = $data['message'];
+					message_parse($cmd);
+				break;
+				
 				case "weather":
-					// Weather station message recognized
-					$weather->lwrite("address: ". $data['address'].
+					// Weather station message recognized.
+					// Write the received values to the logfile, and read all fields.
+					$wlog->lwrite("address: ". 
+									 $data['address'].
 									 ", channel: ". $data['channel'].			   
 									 ", temperature: ". $data['temperature'].
 									 ", humidity: ".  $data['humidity'] 
 									 );
 					$log->lwrite("main:: weather message: temperature: ".$data['temperature']);
-					// XXX Send something to the client GUI?
 					
+					// Send something to the client GUI?
+					$item = array (
+						'secs'  => time(),						// Set execution time to now or asap
+						'tcnt' => $tcnt."",						// Transaction count
+						'type' => 'json',						// We want a json message & json encoded values.
+						'action' => 'weather',
+						'brand' => $data['brand'],
+						'address' => $data['address'],
+						'channel' => $data['channel'],
+						'temperature' => $data['temperature'],
+						'humidity' => $data['humidity'],
+						'windspeed' => $data['windspeed'],
+						'winddirection' => $data['winddirection']
+					);
+					
+					// If we push this message on the Queue with time==0, it will
+					// be executed in phase 2
+					$queue->q_insert($item);
 				break;
+				
 				case "energy":
 					// Energy cation message received
+					// XXX tbd
 				break;
+				
 				case "sensor":
 					// Received a message from a sensor
+					// XXX tbd
 				break;
+				
 				default:
 					$log->lwrite("main:: json data type: <".$data['type']."> not found using raw message");
 					$cmd = $data['message'];
@@ -1575,13 +1631,17 @@ while (true):
 		}
 		
 		// empty message
-		else if (strlen($data) == 0) {
+		else if (strlen($data) == 0) 
+		{
 			if ($debug>0) $log->lwrite("main:: s_recv returned empty data object");
 			break;
 		}
 		
 		// normal raw socket, no websocket but use json to encode the response
-		else {
+		// But json encode in ICS format
+		//
+		else 
+		{
 			if ($debug>1) $log->lwrite("main:: Receiving raw data cmd on socket: <".$data.">");
 			list ($tcnt, $cmd) = explode(',' , $data);
 			if (strcmp($cmd, "PING") === 0) {
@@ -1597,28 +1657,25 @@ while (true):
 			if ( false === ($answer = json_encode($reply)) ) {
 				$log->lwrite("main:: error json_encode: <".$reply['tcnt'].",".$reply['action'].">");
 			}
+		
+			// Reply to the client with the transaction number just received
+			if ( $sock->s_send($answer) == -1) {
+				$log->lwrite("main:: failed writing reply on socket, tcnt: ".$tcnt);
+			}
+			if ($debug>2) $log->lwrite("main:: success writing reply on socket. tcnt: ".$tcnt);
+		
+			if ($debug>0) $log->lwrite("main:: raw cmd to parse: ".$cmd);
+		
+			// Actually, although we might expect more messages we should also
+			// be able to "glue" 2 buffers together if the incoming message is split by TCP/IP
+			// message_parse parses the $cmd string and will push the commands
+			// to the queue.
+			message_parse($cmd);
 		}
-		
-		// Reply to the client with the transaction number just received
-		if ( $sock->s_send($answer) == -1) {
-			$log->lwrite("main:: failed writing reply on socket, tcnt: ".$tcnt);
-		}
-		if ($debug>2) $log->lwrite("main:: success writing reply on socket. tcnt: ".$tcnt);
-		
-		// Once we receive first message, read for more messages, but without!! a timeout
-		if ( $sock->s_wait(0) == -1) {
-			$log->lwrite("main:: Failure to set wait (time=0) on socket: ");
-		}
-		
-		// $data = json_decode($ret,true);						// XXX Later option
-		if ($debug>0) $log->lwrite("main:: cmd to parse: ".$cmd);
-		
-		// Actually, although we might expect more messages we should also
-		// be able to "glue" 2 buffers together if the incoming message is split by TCP/IP
-		message_parse($cmd);
 	}
-	
-	// ------------------------------------------
+
+
+	// --------------------------------------------------------------------------------
 	// 2. STAGE 2 RUN THE READY QUEUE OF COMMANDS
 	//	If there is a queue of scene device commands, for example in a timer that have delayed execution,
 	//	we need to keep track of those actions until all of them are started.
@@ -1633,6 +1690,8 @@ while (true):
 		$log->lwrite("main:: printing and handling queue");
 		$queue->q_print();
 	}
+	
+	// XXX Should index not be $j?
 	for ($i=0; $i<count($queue); $i++) {
 		// Queue records contain scene name, timers (in secs) and commands (ready for kaku_cmd)
 		// New records are put to the end of the queue, with timer being the secs to wait from initialization
@@ -1640,10 +1699,17 @@ while (true):
 		
 		$items = $queue->q_pop();
 		
-		// We now have a list of commands in the scene. However commands may be complex (all out)...
+		// We now have an array of items (commands in the scene). However commands may be complex (all out)...
+		// Also, the queue can store any kind of message, be it raw or a jsons array so we have
+		// to find out what we have here
+		
 		for ($i=0; $i< count($items); $i++) 
 		{
-			if ($debug>0) $log->lwrite("main:: q_pop: ".$items[$i]['secs'].", scene: ".$items[$i]['scene'].", cmd: ".$items[$i]['cmd']);
+			// For every item ...
+			
+			if ($debug>0) 
+				$log->lwrite("main:: q_pop: ".$items[$i]['secs'].", scene: ".$items[$i]['scene']
+							.", cmd: ".$items[$i]['cmd']);
 			// XXX Do we have the latest list of devices??
 			// run-a-command-to-get-the-latest-list-of-devices;;;;;
 			
@@ -1655,99 +1721,138 @@ while (true):
 			// Make use of the feature that the condition in the loop is re-evaluated for every iteration. SO
 			// "explode" the ALL-OFF command, and replace it with the individual device commands, en put them at
 			// the back of the queue-list being executed
-			$cmd = "";
-			if (substr($items[$i]['cmd'],-2,2) == "Fa") {
-				list( $room, $value ) = sscanf ($items[$i]['cmd'], "!R%dF%s" );
-				for ($j=0; $j<count($devices);$j++) {
-					if ($devices[$j]['room']==$room) {
-						// add to the items array 
-						$item = array(
-    					'scene' => $items[$i]['scene'],
-    					'cmd'   => "!R".$room . $devices[$j]['id']."F0",
-						'secs'  => $items[$i]['secs']
-   				 		);
-						$items[] = $item;
+			switch($items[$i]['action'])
+			{
+				case "weather":
+					$log->lwrite("main:: RECOGNIZED WEATHER MESSAGE");
+					$bcst = array (	
+						// First part of the record specifies this message type and characteristics
+						'tcnt' => "0",
+						'action' => "weather",				// code for weather
+						'type'   => "json",					// type either raw or json, we code content here too. 
+						// Remainder of record specifies device parameters
+						'brand'  => $items[$i]['brand'],
+						'address'  => $items[$i]['address'],
+						'channel'  => $items[$i]['channel'],
+						'temperature'  => $items[$i]['temperature'],
+						'humidity'  => $items[$i]['humidity'],
+						'windspeed'  => $items[$i]['windspeed'],
+						'winddirection' => $items[$i]['winddirection']
+					);
+					if ( false === ($answer = json_encode($bcst)) ) {
+						$log->lwrite("main:: error weather broadcast encode: <".$bcst['tcnt']
+									.",".$bcst['action'].">");
 					}
-				}
-				continue;						// End this iteration of the loop
-			}
-			// If not an ALL OFF command Fa, this is probably a normal device command
-			// of form !RxDyFz or !RxDyFdPz (dimmer)
-			else {
-				if ($debug>1) 
-					$log->lwrite("main:: Action: time: ".$items[$i]['secs'].", scene: ".$items[$i]['scene'].", cmd: ".$items[$i]['cmd']);
-				$cmd = $items[$i]['cmd'];
-			}
+					$sock->s_bcast($answer);
+					//continue;
+				break;
+				
+				case "gui":
+					$log->lwrite("main:: RECOGNIZED GUI MESSAGE");
+					$cmd = "";
+					if (substr($items[$i]['cmd'],-2,2) == "Fa") {
+						list( $room, $value ) = sscanf ($items[$i]['cmd'], "!R%dF%s" );
+						for ($j=0; $j<count($devices);$j++) {
+							if ($devices[$j]['room']==$room) {
+								// add to the items array 
+								$item = array(
+    							'scene' => $items[$i]['scene'],
+    							'cmd'   => "!R".$room . $devices[$j]['id']."F0",
+								'secs'  => $items[$i]['secs']
+   				 				);
+								$items[] = $item;					// Add this item to end of array
+							}
+						}
+						continue;									// End this iteration of the loop
+					}
+					// If not an ALL OFF command Fa, this is probably a normal device command
+					// of form !RxDyFz or !RxDyFdPz (dimmer)
+					else {
+						if ($debug>1) 
+							$log->lwrite("main:: Action: time: ".$items[$i]['secs']
+									.", scene: ".$items[$i]['scene'].", cmd: ".$items[$i]['cmd']);
+						$cmd = $items[$i]['cmd'];
+					}
+					
+					// If we have all devices, $devices contains list of devices
+					// It is possible to look the device up through room and device combination!!
+					list( $room, $dev, $value ) = sscanf ($items[$i]['cmd'], "!R%dD%dF%s\n" );
+					if ($debug>1) $log->lwrite("room: ".$room." ,device: ".$dev." value: ".$value);
 			
-			// If we have all devices, $devices contains list of devices
-			// It is possible to look the device up through room and device combination!!
-			
-			list( $room, $dev, $value ) = sscanf ($items[$i]['cmd'], "!R%dD%dF%s\n" );
-			if ($debug>1) $log->lwrite("room: ".$room." ,device: ".$dev." value: ".$value);
-			
-			$device = $dlist->get($room, $dev);
+					$device = $dlist->get($room, $dev);
 
-			// For which room, device is it, and what is the action?
+					// For which room, device is it, and what is the action?
 			
-			if (substr($value, 0, 2) == "dP" ) {
-				$value = substr($value, 2);
-				$device['val'] = $value;
-				$device['lastval'] = $value;
-				$sndval = $value;
-			} 
-			// Must be a switch turned on
-			else if ($value == '1') { 						// in case F1
-				if ($device['type'] == "switch") $device['val']='1';
-				else $device['val']=$device['lastval'];
-				$sndval = "on";
-			} 
-			// Must be a switch turned off
-			else { 
-				$device['val']= "0"; 						// F0
-				$sndval="off";
-			}
-			$log->lwrite("sql device upd: ".$device['name'].", id: ".$device['id'].", room: ".$device['room'].", val: ".$device['val']);
+					if (substr($value, 0, 2) == "dP" ) {
+						$value = substr($value, 2);
+						$device['val'] = $value;
+						$device['lastval'] = $value;
+						$sndval = $value;
+					} 
+					// Must be a switch turned on
+					else if ($value == '1') { 						// in case F1
+						if ($device['type'] == "switch") $device['val']='1';
+						else $device['val']=$device['lastval'];
+						$sndval = "on";
+					} 
+					// Must be a switch turned off
+					else { 
+						$device['val']= "0"; 						// F0
+						$sndval="off";
+					}
+					$log->lwrite("sql device upd: ".$device['name'].", id: "
+							.$device['id'].", room: ".$device['room'].", val: ".$device['val']);
 	
-			$brand = $brands[$device['brand']]['fname'];	// if is index for array (so be careful)
-			$dlist->upd($device);							// Write new value to database
+					$brand = $brands[$device['brand']]['fname'];	// if is index for array (so be careful)
+					$dlist->upd($device);						// Write new value to database
 			
-			$bcst = array (									// build broadcast message
-				// First part of the record specifies this message type and characteristics
-				'tcnt' => "0",
-				'action' => "upd",							// code for remote command. upd tells that we updated a value
-				'type'   => "raw",							// type either raw or json. 
-				// Remainder of record specifies device parameters
-				'gaddr'  => $device['gaddr'],
-				'uaddr'  => $dev."",						// From he sscanf command above, cast to string
-				'brand'  => $brand,							// NOTE brand is a string, not an id here
-				'val'    => $sndval,						// Value is "on", "off", or a number (dimvalue) 1-32
-				'message' => $items[$i]['cmd']				// The GUI message, ICS encoded 
-			);
-			if ( false === ($answer = json_encode($bcst)) ) {
-				$log->lwrite("main:: error broadcast encode: <".$bcst['tcnt'].",".$bcst['action'].">");
-			}
+					$bcst = array (								// build broadcast message
+						// First part of the record specifies this message type and characteristics
+						'tcnt' => "0",
+						'action' => "upd",					// code for remote command. upd tells we update a value
+						'type'   => "raw",					// type either raw or json. 
+						// Remainder of record specifies device parameters
+						'gaddr'  => $device['gaddr'],
+						'uaddr'  => $dev."",				// From he sscanf command above, cast to string
+						'brand'  => $brand,					// NOTE brand is a string, not an id here
+						'val'    => $sndval,				// Value is "on", "off", or a number (dimvalue) 1-32
+						'message' => $items[$i]['cmd']		// The GUI message, ICS encoded 
+					);
+					if ( false === ($answer = json_encode($bcst)) ) {
+						$log->lwrite("main:: error broadcast encode: <".$bcst['tcnt']
+									.",".$bcst['action'].">");
+					}
 			
-			$sock->s_bcast($answer);					// broadcast this command back to all connected clients
-														// XXX We need to define a json message format that is easier on the client.
-			// Actually, broadcasting to all clients could include
-			// broadcasting to the LamPI-receiver process where we can read the command
-			// and call the correct handler directly.
-		}
-	}
+					$sock->s_bcast($answer);			// broadcast this command back to all connected clients
+					// XXX We need to define a json message format that is easier on the client.
+					
+					// Actually, broadcasting to all clients could include
+					// broadcasting to the LamPI-receiver process where we can read the command
+					// and call the correct handler directly.
+				break;
+				
+				default:
+					$log->lwrite("main:: NO DEFINED ACTION: ".$items[$i]['action']);
+			}//switch	
+
+		}//for
+		
+	}//for
 	if ($debug > 2) {
-		$log->lwrite("main:: queue finished");
+		$log->lwrite("main:: queue finished ");
 		$queue->q_print();
 	}
 
 	
-	if ($debug> 2) $log->lwrite("main:: Entering the SQL Timers section" );
 	
-	// ---------------------
+	
+	// -----------------------------------------------------------------------
 	// 3. STAGE 3 RUN TIMERS FROM MYSQL
 	// Process timers scenes in MySQL and see whether they need activation... 
 	// Other processing based on content of timers in MySQL?
 	// This part only needs to run once every 60 seconds or so, since the timer resolution in in MINUTES!
 	
+	if ($debug> 2) $log->lwrite("main:: Entering the SQL Timers section" );
 	$timers = load_timers();	
 	$tim = time();
 	// mktime(hour,minute,second,month,day,year,is_dst) NOTE is_dst daylight saving time

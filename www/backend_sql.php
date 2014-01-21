@@ -11,6 +11,8 @@ require_once( './backend_lib.php' );
 	Version 1.4 : Sep 20, 2013
 	Version 1.5 : Oct 20, 2013
 	Version 1.6 : NOv 10, 2013
+	Version 1.7 : Dec 2013
+	Version 1.8 : Jan 18, 2014
 
 NOTE: Starting release 1.3 the functions in this file will be called by .php AJAX handlers
 	of the client side AND by the LamPI-daemon.php process. As of release 1.4 probably parts
@@ -18,7 +20,7 @@ NOTE: Starting release 1.3 the functions in this file will be called by .php AJA
 	then handle further requests.
 	
 NOTE:
-	Start initiating the database by executing: http://localhost/coco/backend_ini.php?load=1
+	Start initiating the database by executing: http://localhost/coco/backend_set.php?load=1
 	this will initialize the MySQP database as defined in init_dbase()
 	
 NOTE: This php file has NO memory other than what we store in SQL. This file is freshly
@@ -141,7 +143,8 @@ $ret = post_parse();
 // XXX Needs some cleaning and better/consistent messaging specification
 // could also include the setting of debug on the client side
 switch($action)
-{	// Functions on the whole database
+{	
+	// Functions on the whole database
 	case "load_database":
 		$apperr .= "Load: msg: ".$icsmsg."\n";
 		$appmsg = load_database();

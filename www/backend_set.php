@@ -10,6 +10,8 @@ require_once ( './backend_lib.php' );
 	Version 1.4 : 
 	Version 1.5 : Oct 20, 2013
 	Version 1.6 : Nov 10, 2013
+	Version 1.7 : Dec 2013
+	Version 1.8 : Jan 17, 2014
 
 	This is a supporting file for LamPI-x.x.js front end application
 	
@@ -97,6 +99,7 @@ function fill_database($cfg)
 	$controllers = $cfg['controllers'];
 	$handsets = $cfg['handsets'];
 	$brands = $cfg['brands'];
+	$weather = $cfg['weather'];
 	
 	 // We assume that a database has been created by the user
 	global $dbname;
@@ -113,6 +116,7 @@ function fill_database($cfg)
 	
 	// Success,  so we can start filling the database
 	
+	// --------------------------------------------------------------------------
 	// Create table rooms
 	// Please note that drop command needs special permissions 
 	
@@ -121,64 +125,6 @@ function fill_database($cfg)
 	{
     	echo "Table creation rooms failed: (" . $mysqli->errno . ") " . $mysqli->error;
 	}
-	
-	// create table devices
-	if (!$mysqli->query("DROP TABLE IF EXISTS devices") ||
-    	!$mysqli->query("CREATE TABLE devices(id CHAR(3), gaddr CHAR(12), room CHAR(12), name CHAR(20), type CHAR(12), val INT, lastval INT, brand CHAR(20) )") )
-	{
-    	echo "Table creation devices failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// SCENES
-	// Fr now we declare seq string 255 which is the max for mySQL. ICS specs mention 256(!) chars max 
-	if (!$mysqli->query("DROP TABLE IF EXISTS scenes") ||
-    	!$mysqli->query("CREATE TABLE scenes(id INT, val INT, name CHAR(20), seq CHAR(255) )") )
-	{
-    	echo "Table creation scenes failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// Timers
-	//  
-	if (!$mysqli->query("DROP TABLE IF EXISTS timers") ||
-    	!$mysqli->query("CREATE TABLE timers(id INT, name CHAR(20), scene CHAR(20), tstart CHAR(20), startd CHAR(20), endd CHAR(20), days CHAR(20), months CHAR(20) )") )
-	{
-    	echo "Table creation timers failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// Handsets
-	//  
-	if (!$mysqli->query("DROP TABLE IF EXISTS handsets") ||
-    	!$mysqli->query("CREATE TABLE handsets(id INT, name CHAR(20), brand CHAR(20), addr CHAR(20), unit INT, val INT, type CHAR(20), scene CHAR(255) )") )
-	{
-    	echo "Table creation handsets failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// Settings 
-	if (!$mysqli->query("DROP TABLE IF EXISTS settings") ||
-    	!$mysqli->query("CREATE TABLE settings(id INT, val CHAR(128), name CHAR(20) )") )
-	{
-    	echo "Table creation setting failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// Controllers
-	if (!$mysqli->query("DROP TABLE IF EXISTS controllers") ||
-    	!$mysqli->query("CREATE TABLE controllers(id INT, name CHAR(20), fname CHAR(128) )") )
-	{
-    	echo "Table creation controllers failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	// Brands
-	if (!$mysqli->query("DROP TABLE IF EXISTS brands") ||
-    	!$mysqli->query("CREATE TABLE brands(id INT, name CHAR(20), fname CHAR(128) )") )
-	{
-    	echo "Table creation brands failed: (" . $mysqli->errno . ") " . $mysqli->error;
-	}
-	
-	//
-	// INSERT ALL DATA
-	// All tables are defined now
-	//
-
 	for ($i=0; $i < count($rooms); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO rooms (id, name) VALUES ('" 
@@ -191,7 +137,14 @@ function fill_database($cfg)
 		}
 	}
 	
-	// Devices
+	// ----------------------------------------------------------
+	// create table devices
+	if (!$mysqli->query("DROP TABLE IF EXISTS devices") ||
+    	!$mysqli->query("CREATE TABLE devices(id CHAR(3), gaddr CHAR(12), room CHAR(12), name CHAR(20), type CHAR(12), val INT, lastval INT, brand CHAR(20) )") )
+	{
+    	echo "Table creation devices failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert devices	
 	for ($i=0; $i < count($devices); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO devices (id, gaddr, room, name, type, val, lastval, brand) VALUES ('" 
@@ -209,8 +162,15 @@ function fill_database($cfg)
 			echo "Table Insert failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
 		}
 	}
-
 	
+	// ----------------------------------------------------------
+	// Insert SCENES
+	// Fr now we declare seq string 255 which is the max for mySQL. ICS specs mention 256(!) chars max 
+	if (!$mysqli->query("DROP TABLE IF EXISTS scenes") ||
+    	!$mysqli->query("CREATE TABLE scenes(id INT, val INT, name CHAR(20), seq CHAR(255) )") )
+	{
+    	echo "Table creation scenes failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
 	// Scenes
 	for ($i=0; $i < count($scenes); $i++)
 	{
@@ -225,8 +185,16 @@ function fill_database($cfg)
 			echo "Table Insert failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
 		}
 	}
-	
+
+	// -------------------------------------------------------
 	// Timers
+	//  
+	if (!$mysqli->query("DROP TABLE IF EXISTS timers") ||
+    	!$mysqli->query("CREATE TABLE timers(id INT, name CHAR(20), scene CHAR(20), tstart CHAR(20), startd CHAR(20), endd CHAR(20), days CHAR(20), months CHAR(20) )") )
+	{
+    	echo "Table creation timers failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Timers
 	for ($i=0; $i < count($timers); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO timers (id, name, scene, tstart, startd, endd, days, months ) VALUES ('" 
@@ -245,7 +213,15 @@ function fill_database($cfg)
 		}
 	}
 	
+	// --------------------------------------------------------------------
 	// Handsets
+	//  
+	if (!$mysqli->query("DROP TABLE IF EXISTS handsets") ||
+    	!$mysqli->query("CREATE TABLE handsets(id INT, name CHAR(20), brand CHAR(20), addr CHAR(20), unit INT, val INT, type CHAR(20), scene CHAR(255) )") )
+	{
+    	echo "Table creation handsets failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Handsets
 	for ($i=0; $i < count($handsets); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO handsets (id, name, brand, addr, unit, val, type, scene ) VALUES ('" 
@@ -264,7 +240,14 @@ function fill_database($cfg)
 		}
 	}
 	
-	// Settings
+	// -------------------------------------------------------------
+	// Settings 
+	if (!$mysqli->query("DROP TABLE IF EXISTS settings") ||
+    	!$mysqli->query("CREATE TABLE settings(id INT, val CHAR(128), name CHAR(20) )") )
+	{
+    	echo "Table creation setting failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Settings
 	for ($i=0; $i < count($settings); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO settings (id, val, name ) VALUES ('" 
@@ -274,11 +257,18 @@ function fill_database($cfg)
 							) 
 			)
 		{
-			echo "Table Insert Settings failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
+			echo "Table Insert settings failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
 		}
 	}
 	
+	// -------------------------------------------------------------
 	// Controllers
+	if (!$mysqli->query("DROP TABLE IF EXISTS controllers") ||
+    	!$mysqli->query("CREATE TABLE controllers(id INT, name CHAR(20), fname CHAR(128) )") )
+	{
+    	echo "Table creation controllers failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Controllers
 	for ($i=0; $i < count($controllers); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO controllers (id, name, fname ) VALUES ('" 
@@ -288,11 +278,18 @@ function fill_database($cfg)
 							) 
 			)
 		{
-			echo "Table Insert failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
+			echo "Table Insert controllers failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
 		}
 	}
 	
+	// --------------------------------------------------------------
 	// Brands
+	if (!$mysqli->query("DROP TABLE IF EXISTS brands") ||
+    	!$mysqli->query("CREATE TABLE brands(id INT, name CHAR(20), fname CHAR(128) )") )
+	{
+    	echo "Table creation brands failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Brands
 	for ($i=0; $i < count($brands); $i++)
 	{
 		if (!$mysqli->query("INSERT INTO brands (id, name, fname ) VALUES ('" 
@@ -302,10 +299,37 @@ function fill_database($cfg)
 					) 
 			)
 		{
-			echo "Table Insert failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
+			echo "Table Insert brands failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
 		}
 	}
-
+	
+	// --------------------------------------------------------------
+	// Weather
+	if (!$mysqli->query("DROP TABLE IF EXISTS weather") ||
+    	!$mysqli->query("CREATE TABLE weather(id INT, location CHAR(20), brand CHAR(20), address CHAR(8), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8) )") )
+	{
+    	echo "Table creation weather failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	// Insert Brands
+	for ($i=0; $i < count($weather); $i++)
+	{
+		if (!$mysqli->query("INSERT INTO weather (id, location, brand, address, channel, temperature, humidity, windspeed, winddirection ) VALUES ('" 
+					. $weather[$i][id]. "','" 
+					. $weather[$i][location]. "','"
+					. $weather[$i][brand]. "','"
+					. $weather[$i][address]. "','"
+					. $weather[$i][channel]. "','"
+					. $weather[$i][temperature]. "','"
+					. $weather[$i][humidity]. "','"
+					. $weather[$i][windspeed]. "','"
+					. $weather[$i][winddirection]. "')"
+					) 
+			)
+		{
+			echo "Table Insert weather failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
+		}
+	}
+	
 	return(1);
 }
 
@@ -325,6 +349,7 @@ function print_database($cfg)
 	$settings = $cfg["settings"];
 	$controllers = $cfg["controllers"];
 	$brands = $cfg["brands"];
+	$weather = $cfg["weather"];
 
 	var_dump(get_object_vars($cfg));
 	echo " print database started succesfully";
@@ -388,6 +413,13 @@ function print_database($cfg)
 	echo("Count of brands: " . count($brands) . "\n");
 	for ($i=0; $i < count($brands); $i++) {
 		echo("index: $i id: ".$brands[$i][id].", name: ".$brands[$i][name].", fname: ".$brands[$i][fname]."\n");
+	}
+	echo("\n");
+	
+	// weather
+	echo("Count of weather: " . count($weather) . "\n");
+	for ($i=0; $i < count($weather); $i++) {
+		echo("index: $i id: ".$weather[$i][id].", location: ".$weather[$i][location].", brand: ".$weather[$i][brand].", address: ".$weather[$i][address].", channel: ".$weather[$i][channel].", temperature: ".$weather[$i][temperature].", humidity: ".$weather[$i][humidity].", windspeed: ".$weather[$i][windspeed].", winddirection: ".$weather[$i][winddirection]."\n");
 	}
 	echo("\n");
 	
@@ -465,12 +497,12 @@ function post_parse()
 
 /*	--------------------------------------------------------------------------------	
 	function get_parse. 
-	Parse the $_GET  for commands
+	Parse the URL  $_GET for commands
 	Commands may be load, message, style, debug
 		In case of lamp, message contains its parameters
 		
 	The GET function comes in handy for command-line functions
-	Use: http://localhost/coco/backend_init.php?backup=1 for example
+	Use: http://localhost/kaku/backend_set.php?backup=1 for example
 	--------------------------------------------------------------------------------	*/
 function get_parse() 
 {
