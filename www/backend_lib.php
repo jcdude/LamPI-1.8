@@ -161,10 +161,10 @@ function load_database()
 	}
 	mysqli_free_result($query);
 	
-	$sqlCommand = "SELECT id, location, brand, address, channel, temperature, humidity, windspeed, winddirection   FROM weather";
+	$sqlCommand = "SELECT id, location, brand, address, channel, temperature, humidity, windspeed, winddirection FROM weather";
 	$query = mysqli_query($mysqli, $sqlCommand) or die (mysqli_error());
 	while ($row = mysqli_fetch_assoc($query)) { 
-		$brands[] = $row ;
+		$weather[] = $row ;
 	}
 	mysqli_free_result($query);
 	
@@ -183,6 +183,7 @@ function load_database()
 	return ($config);
 }
 
+
 /*	-----------------------------------------------------------------------------------	
 	The function received/reads a jSon message from the client
 	side and decodes it. After decoding, the resulting
@@ -195,6 +196,7 @@ function store_database($inp)
 	$dec = json_decode($inp);
 	return(2);	
 }
+
 
 // ----------------------------------------------------------------------------------
 //
@@ -745,6 +747,35 @@ function delete_handset($handset)
 	return(16);
 }
 
+
+/*	=======================================================================================	
+	Function load_weatherdb database
+	
+	=======================================================================================	*/
+function load_weatherdb()
+{
+	// We assume that a database has been created by the user. host/name/passwd in backend_cfg.php
+	global $dbname, $dbuser, $dbpass, $dbhost;	
+	global $appmsg, $apperr;
+	
+	$weather = array();
+	
+	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
+	if ($mysqli->connect_errno) {
+		decho("Failed to connect to MySQL on host ".$dbhost." (" . $mysqli->connect_errno . ") " . $mysqli->connect_error , 1);
+		return(-1);
+	}
+	
+	$sqlCommand = "SELECT id, timestamp, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rain FROM weatherdb";
+	$query = mysqli_query($mysqli, $sqlCommand) or die (mysqli_error());
+	while ($row = mysqli_fetch_assoc($query)) { 
+		$weatherdb[] = $row ;
+	}
+	mysqli_free_result($query);	
+	mysqli_close($mysqli);
+	$apperr = "";										// No error
+	return ($weatherdb);
+}
 
 
 

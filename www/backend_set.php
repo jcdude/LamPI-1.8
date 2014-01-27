@@ -2,7 +2,7 @@
 require_once ( './backend_cfg.php' );
 require_once ( './backend_lib.php' );
 
-/*	------------------------------------------------------------------------------	
+/*	======================================================================================	
 	Note: Program to switch klikaanklikuit and coco equipment
 	Author: Maarten Westenberg
 	Version 1.0 : August 16, 2013
@@ -25,9 +25,7 @@ NOTE:
 	Start initiating the database by executing: http://localhost/kaku/backend_sql.php?init=1
 	this will initialize the MySQL database as defined below in init_dbase()
 	
-
-	
-	-------------------------------------------------------------------------------	*/
+	======================================================================================	*/
 error_reporting(E_ALL);
 header("Cache-Control: no-cache");
 header("Content-type: application/json");					// Input and Output are XML coded
@@ -39,10 +37,10 @@ $apperr = "";	// Global Error. Just append something and it will be sent back
 $appmsg = "";	// Application Message (from backend to Client)
 
 
-/*	---------------------------------------------------------------------------------------	
+/*	======================================================================================	
 	Function write complete database to file
 	
-	------------------------------------------------------------------------------------	*/
+	======================================================================================	*/
 function file_database($fname, $cfg)
 {
 	$ret = file_put_contents ( $fname, json_encode($cfg, JSON_PRETTY_PRINT));
@@ -57,30 +55,30 @@ function file_database($fname, $cfg)
 	return ($ret);
 }
 
-/*	---------------------------------------------------------------------------------------	
+/*	======================================================================================	
 	Function read complete database from file
 	
-	------------------------------------------------------------------------------------	*/
+	======================================================================================	*/
 function read_database($fname)
 {
 
 	$ret = file_get_contents ( $fname );
 	if ( $ret === false )
 	{
-		$apperr .= "\nError file_database from file: ".$fname."\n";
+		$apperr .= "\nError read_database from file: ".$fname."\n";
 		$ret = -1;
 		echo "ERROR read database";
 		return(-1);
 	}
 	else {
-		$appmsg .= "\nSuccess file_database\n";
+		$appmsg .= "\nSuccess read_database\n";
 	}
 	$cfg = json_decode($ret, true);
 	return ($cfg);
 }
 
 
-/*	---------------------------------------------------------------------------------------	
+/*	======================================================================================	
 	Function to create a database, and fill it with values as specified in its parameters
 	For testing purposes, we want to be able to reset the database,
 	and reread some initial values that make sense in my (your)
@@ -88,7 +86,7 @@ function read_database($fname)
 	
 	The array below contains such an initial database, after
 	reading it, we want to populate the MySQL database with these values
-	------------------------------------------------------------------------------------	*/
+	======================================================================================	*/
 function fill_database($cfg)
 {
 	$rooms = $cfg['rooms'];
@@ -113,7 +111,6 @@ function fill_database($cfg)
 	if ($mysqli->connect_errno) {
 		echo "Failed to connect to MySQL: host ".$dbhost." (".$mysqli->connect_errno.") ".$mysqli->connect_error;
 	}
-	
 	// Success,  so we can start filling the database
 	
 	// --------------------------------------------------------------------------
@@ -333,10 +330,11 @@ function fill_database($cfg)
 	return(1);
 }
 
-/*	---------------------------------------------------------------------------------------	
+
+/*	=======================================================================================	
 	Function to print a database, 
 	
-	------------------------------------------------------------------------------------	*/
+	=======================================================================================	*/
 function print_database($cfg)
 {
 	echo " print database opened succesfully : \n" ;
@@ -419,7 +417,11 @@ function print_database($cfg)
 	// weather
 	echo("Count of weather: " . count($weather) . "\n");
 	for ($i=0; $i < count($weather); $i++) {
-		echo("index: $i id: ".$weather[$i][id].", location: ".$weather[$i][location].", brand: ".$weather[$i][brand].", address: ".$weather[$i][address].", channel: ".$weather[$i][channel].", temperature: ".$weather[$i][temperature].", humidity: ".$weather[$i][humidity].", windspeed: ".$weather[$i][windspeed].", winddirection: ".$weather[$i][winddirection]."\n");
+		echo("index: $i id: ".$weather[$i][id].", location: ".$weather[$i][location]
+				.", brand: ".$weather[$i][brand].", address: ".$weather[$i][address]
+				.", channel: ".$weather[$i][channel].", temperature: ".$weather[$i][temperature]
+				.", humidity: ".$weather[$i][humidity].", windspeed: ".$weather[$i][windspeed]
+				.", winddirection: ".$weather[$i][winddirection]."\n");
 	}
 	echo("\n");
 	
@@ -427,10 +429,153 @@ function print_database($cfg)
 }
 
 
-/*	---------------------------------------------------------------------------------------	
+/*	======================================================================================	
+	Function read weather logfile from file
+	
+	======================================================================================	*/
+function read_weatherdb($fname)
+{
+	
+	echo "Reading weather from file: ".$fname."\n";
+	$ret = file($fname,FILE_IGNORE_NEW_LINES);
+	if ( $ret === false )
+	{
+		$apperr .= "\nError read_weatherdb from file: ".$fname."\n";
+		$ret = -1;
+		echo "ERROR read database\n";
+		return(-1);
+	}
+	else {
+		$appmsg .= "\nSuccess read_weatherdb\n";
+	}
+	
+	for ($i=0; $i< count($ret); $i++)
+	{
+		$n = sscanf($ret[$i],"[%d/%3s/%d, %d:%d:%d] (LamPI-daemon) address: %d, channel: %d, temperature: %d.%d, humidity: %d" ,
+								$day, $mon, $yr, $hr, $min, $sec,
+								$address, $channel, $temp1, $temp2, $humidity );
+		// $msqldate = date( 'Y-m-d H:i:s', $phpdate );
+		
+		$weathr= array (
+			// These should be all values for a weather station, not all will
+			// be present, depending on the version, number of sensors etc.
+			// I you like to add more field, make sure you do with the MSQL function below as well.
+			'id' => $i,
+			'timestamp' => $yr."-".$mon."-".$day." ".$hr.":".$min.":".$sec ,
+			'location'  => "",					
+			'brand'  => "",
+			'address'  => $address,
+			'channel'  => $channel,
+			'temperature'  => $temp1.".".$temp2,
+			'humidity'  => $humidity,
+			'windspeed'  => "",
+			'winddirection' => "",
+			'rain' => ""
+		);
+		$weatherdb[] = $weathr;
+		//echo "Record: ".$i.", timestamp: ".$weathr['timestamp'].", address: ".$weathr['address']
+		//	.", channel: ".$weathr['channel'].", Temp: ".$weathr['temperature']
+		//	.", Humid: ".$weathr['humidity']."\n";
+	}
+	
+	return ($weatherdb);
+}
+
+
+/*	=======================================================================================	
+	Function to create tables for the LamPI-weather functions
+	The database will contain weather station data such as Address, Channel, 
+	temperature, humidity, windspeed and winddirection
+	
+	=======================================================================================	*/ 
+function fill_weatherdb($weatherdb)
+{
+	// We assume that a database has been created by the user
+	global $dbname;
+	global $dbuser;
+	global $dbpass;
+	global $dbhost;
+	
+	// We need a table rooms, devices, scenes and timers to start
+	
+	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
+	if ($mysqli->connect_errno) {
+		echo "Failed to connect to MySQL: host ".$dbhost." (".$mysqli->connect_errno.") ".$mysqli->connect_error;
+	}
+	
+	// Success,  so we can start filling the database
+	
+	// --------------------------------------------------------------------------
+	// Create table weather
+	// Please note that drop command needs special permissions 
+	
+	if (!$mysqli->query("DROP TABLE IF EXISTS weatherdb") ||
+    	!$mysqli->query("CREATE TABLE weatherdb(id INT, timestamp CHAR(20), location CHAR(20), brand CHAR(20), address CHAR(8), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8), rain INT )") )
+	{
+    	echo "Table creation weatherdb failed: (" . $mysqli->errno . ") " . $mysqli->error;
+	}
+	
+	// This can esily become a VERY large datastructure
+	// So we might have to be sure that the database table can accomodate the information
+	for ($i=0; $i < count($weatherdb); $i++)
+	{	
+		if (!$mysqli->query("INSERT INTO weatherdb (id, timestamp, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rain ) VALUES ('" 
+					. $weatherdb[$i][id]. "','" 
+					. $weatherdb[$i]['timestamp']. "','"
+					. $weatherdb[$i]['location']. "','"
+					. $weatherdb[$i][brand]. "','"
+					. $weatherdb[$i][address]. "','"
+					. $weatherdb[$i][channel]. "','"
+					. $weatherdb[$i][temperature]. "','"
+					. $weatherdb[$i][humidity]. "','"
+					. $weatherdb[$i][windspeed]. "','"
+					. $weatherdb[$i][winddirection]. "','"
+					. $weatherdb[$i][rain]. "')"
+					) 
+			)
+		{
+			echo "Table Insert weatherdb failed: (" . $mysqli->errno . ") " . $mysqli->error . "\n";
+		}
+	}
+	return(1);
+}
+
+
+/*	=======================================================================================	
+	Function to print a weather database 
+	
+	=======================================================================================	*/
+function print_weatherdb($weatherdb)
+{
+	// var_dump(get_object_vars($cfg));
+	echo " print weatherdb started succesfully, ";
+	echo("Count of weatherdb: " . count($weatherdb) . "\n");
+	
+	for ($i=0; $i < count($weatherdb); $i++) 
+	{
+		echo("index: $i id: ".$weatherdb[$i]['id']
+				.", location: ".$weatherdb[$i]['location']
+				.", brand: ".$weatherdb[$i][brand]
+				.", address: ".$weatherdb[$i][address]
+				.", channel: ".$weatherdb[$i][channel]
+				.", temperature: ".$weatherdb[$i][temperature]
+				.", humidity: ".$weatherdb[$i][humidity]
+				.", windspeed: ".$weatherdb[$i][windspeed]
+				.", winddirection: ".$weatherdb[$i][winddirection]
+				.", rainfall: ".$weatherdb[$i][rain]
+				."\n");
+	}
+	echo("\n");
+	
+	echo("print_weatherdb:: Sucess\n\n");
+}
+
+
+
+/*	=======================================================================================	
 	Function to get a directory listing of config for the client. 
 	
-	------------------------------------------------------------------------------------	*/
+	=======================================================================================	*/
 function list_skin($dirname)
 {
 	global $apperr;
@@ -444,10 +589,10 @@ function list_skin($dirname)
 }
 
 
-/*	---------------------------------------------------------------------------------------	
+/*	=======================================================================================	
 	Function to get a directory listing of config for the client. 
 	
-	------------------------------------------------------------------------------------	*/
+	=======================================================================================	*/
 function list_config($dirname)
 {
 	global $apperr;
@@ -461,10 +606,10 @@ function list_config($dirname)
 }
 
 
-/*	-------------------------------------------------------
+/*	=======================================================================================
 	function post_parse()
 	
-	-------------------------------------------------------	*/
+	=======================================================================================	*/
 function post_parse()
 {
   global $appmsg;
@@ -495,7 +640,7 @@ function post_parse()
 	} // for
 } // function
 
-/*	--------------------------------------------------------------------------------	
+/*	=======================================================================================	
 	function get_parse. 
 	Parse the URL  $_GET for commands
 	Commands may be load, message, style, debug
@@ -503,7 +648,7 @@ function post_parse()
 		
 	The GET function comes in handy for command-line functions
 	Use: http://localhost/kaku/backend_set.php?backup=1 for example
-	--------------------------------------------------------------------------------	*/
+	=======================================================================================	*/
 function get_parse() 
 {
   global $appmsg;
@@ -511,6 +656,7 @@ function get_parse()
   global $action;
   global $icsmsg;
   global $config_dir;
+  global $log_dir;
 
   foreach ($_GET as $ind => $val )
   {
@@ -529,27 +675,44 @@ function get_parse()
 
 // ******* URL COMMANDLINE OPTIONS BELOW ***
 	
+	// Initial or repair load of th edatabase for LamPI
+	// Need to specify this option on the URL: http://<my-lampi-url>/backend_set.php?load
+	//
 	case "load":
 		echo "load:: config file: ".$config_dir."database.cfg\n" ;
-		$cfg = read_database($config_dir."database.cfg");				// Load $cfg Object from File
+		$cfg = read_database($config_dir."database.cfg");			// Load $cfg Object from File
 		echo " cfg read; ";
 		print_database($cfg);
 		echo " now filling mysql; ";
-		$ret = fill_database($cfg);									// Fill the MySQL Database with $cfg object
+		$ret = fill_database($cfg);							// Fill the MySQL Database with $cfg object
 		echo " Making backup; ";
-		$ret = file_database(($config_dir."newdbms.cfg"), $cfg);		// Make backup to other file
+		$ret = file_database(($config_dir."newdbms.cfg"), $cfg);	// Make backup to other file
 		echo " Backup newdbms.cfg made";
 		if ($val < 1) {
-			decho("Init:: value must be >0");
+			decho("file_database:: value must be >0");
 		}	
 		exit(0);
 	break;	
+	
+	// Create the weather table (if not exist)
+	//
+	case "weather":
+		echo "weather:: Start creating the database tables from ".$log_dir."LamPI-weather.log\n";
+		$weatherdb = read_weatherdb($log_dir."LamPI-weather.log");
+		$val = fill_weatherdb($weatherdb);
+		if ($val < 1) {
+			decho("fill_weatherdb:: value must be >0\n");
+		}	
+		echo "fill_weatherdb:: is complete\n";
+		print_weatherdb($weatherdb);
+		exit(0);
+	break;
 	
 	case "store":
 		$cfg = load_database();											// Fill $cfg from MySQL
 		$ret = file_database($config_dir."newdbms.cfg", $cfg);			// Make backup to other file
 		if ($val < 1) {
-			decho("Init:: value must be >0");
+			decho("store:: value must be >0");
 		}	
 		echo "Backup is complete";
 		exit(0);
@@ -563,10 +726,10 @@ function get_parse()
 } // Func
 
 
-/*	=======================================================	
+/*	=======================================================================================	
 	MAIN PROGRAM
 
-	=======================================================	*/
+	=======================================================================================	*/
 
 $ret = 0;
 $cfg = 0;

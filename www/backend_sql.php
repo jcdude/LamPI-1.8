@@ -278,10 +278,10 @@ switch($action)
 
 if ($ret >= 0) {									// Prepare structure to send back to the calling ajax client (in stdout)
 	$send = array(
-    'tcnt' => $ret,
-	'appmsg'=> $appmsg,
-    'status' => 'OK',
-	'apperr'=> $apperr,
+    	'tcnt' => $ret,
+		'appmsg'=> $appmsg,
+    	'status' => 'OK',
+		'apperr'=> $apperr,
     );
 	$output=json_encode($send);
 }

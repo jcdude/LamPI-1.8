@@ -198,6 +198,9 @@ var timers={};
 var settings={};
 var brands={};
 var handsets={};
+// Weather Stations Config. The weatherdb array contains all read weather values.
+var weather={};
+var weatherdb={};
 
 // ---------------------------------------------------------------------------------
 //	This function waits until the document DOM is ready and then 
@@ -1358,9 +1361,6 @@ function init_websockets() {
 						default: 
 							console.log("onmessage:: read upd message. Unknown type: "+type);
 					}
-					
-					
-					
 				break;
 				
 				case 'weather':
@@ -1373,6 +1373,14 @@ function init_websockets() {
 					console.log("Weather:: addr: "+address+", chl: "+channel+", temp: "
 							+temperature+", humi: "+humidity+"%");
 					
+				break;
+				
+				case 'sensor':
+					console.log("Lampi.js:: received sensor message");
+				break;
+				
+				case 'energy':
+					console.log("Lampi.js:: received energy message");
 				break;
 				
 				default:
@@ -1771,7 +1779,7 @@ function init_scenes(cmd)
 					
 		}
 		but += "</td>";
-		message (msg);
+		if (debug>1) message(msg);
 		// Add special buttons for controlling the scenes
 		// Add a scene
 		but +=  "<td>" ;
@@ -1814,7 +1822,7 @@ function init_timers(cmd)
 				but +=  timer_button(timer_id, timer_name);
 			}			
 		}
-		message (msg);
+		if (debug>1) message(msg);
 		but += '</td>';
 		// Add special buttons for controlling the scenes
 		// Add a scene
@@ -1870,7 +1878,7 @@ function init_handsets(cmd)
 				
 			}
 		}
-		message (msg);
+		if (debug>1) message(msg);
 				
 		but += '</td>';
 		// Add special buttons for controlling the handsets
@@ -1913,7 +1921,7 @@ function init_settings(cmd)
 				but +=  setting_button(setting_id, setting_name);
 			}	
 		}
-		message (msg);
+		if (debug>1) message(msg);
 		but += '</td>';	
 		but +=  '<td>';
 		but += '<input type="submit" id="Help" value= "?" class="cc_button help_button">'  ;
@@ -1980,24 +1988,20 @@ function init_menu(cmd)
 				break;
 				
 				case "M2":
-					message("Menu: Define scenes");
 					init_scenes(s_scene_id);
 				break;
 				
 				case "M3":
-					message ("Menu: Set your timers");
 					init_timers();
 					//
 				break;
 				
 				case "M4":
-					message ("Menu: Set your Handsets");
 					init_handsets();
 					//
 				break;
 				
 				case "M5":
-					message("Menu: Configuration Editor");
 					init_settings();
 				break;
 				
@@ -3099,7 +3103,7 @@ function activate_handset(hset)
 				
 				// If this is the first line in the scene database
 				send_2_dbase("upd_scene", handsets[j]);
-				message("Device command added to the scene");
+				message("Device command added to the scene",1);
 				
 			} // if recording
 
@@ -3223,8 +3227,8 @@ function activate_handset(hset)
 						
 								// Finding the index of the item and time to delete is difficult!
 								var removed = handset_split.splice(ind,2);
-								ind --;							// After deleting from handset_split, adjust the indexes for
-														// rest of the array	
+								ind --;				// After deleting from handset_split, adjust the indexes for
+													// rest of the array	
 								if (debug > 1) alert("removed:"+removed[0]+ "," +removed[1]+": from seq: "+handset_split );
 								msg += ind + " : " + decode_scene_string( removed[0] ) + "; " ;
 						
@@ -5168,12 +5172,12 @@ function send_2_dbase(dbase_cmd, dbase_arg)
 // NOTE: We call init functions SYNCHRONOUS, as it modifies the app under our hands
 // This may be the only function therefore that we keep separate from the daemon.
 //
-function send_2_set(command, parameter) 
+function send_2_set(command, parameter)
 {
 	var result = {};
 	$.ajax({
 		async: false,								// Synchronous operation
-   		url: murl + "backend_set.php",				   
+   		url: murl + "backend_set.php",
 		type: "POST",
     	dataType: 'json',
 		//contentType: 'application/json',
@@ -5185,14 +5189,14 @@ function send_2_set(command, parameter)
     	success: function( data )
 		{
 			// Make room 1 default
-			if (debug>0) message("send_2_set:: Success");	
+			if (debug>0) message("send_2_set:: Success");
 					
 			// Send debug message if desired
-			if (debug>1) {							// Show result with alert		
+			if (debug>1) {							// Show result with alert	
           		alert('Ajax call send_2_set success: \n' 
-					+ ',\nStatus: ' + data.status 
-					+ '.\nApp Msg: ' + data.appmsg 
-					+ '.\nApp Err: ' + data.apperr 
+					+ ',\nStatus: ' + data.status
+					+ '.\nApp Msg: ' + data.appmsg
+					+ '.\nApp Err: ' + data.apperr
 				);
 			}
 			result = data.appmsg;
@@ -5202,14 +5206,14 @@ function send_2_set(command, parameter)
 		error: function(jqXHR, textStatus, errorThrown)
 		{
 			// data.responseText is what you want to display, that's your error.
-			alert("send_2_set:: command: " + command 
+			alert("send_2_set:: command: " + command
 				+ "\nError:" + jqXHR
 				+ "\nTextStatus: "+ textStatus
-				+ "\nerrorThrown: "+ errorThrown 
+				+ "\nerrorThrown: "+ errorThrown
 				+ "\n\nFunction will finish now!" );
 			return(-1);
 		}
-	});	
+	});
 	if (debug>2) alert("send_2_set:: returning"+ result);
 	return (result);
 };

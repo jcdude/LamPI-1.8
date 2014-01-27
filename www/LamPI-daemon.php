@@ -167,7 +167,6 @@ class Queue {
 	public function q_insert($item) {
 		global $log;
 		global $debug;
-		if ($debug>0) $log->lwrite("q_insert:: item: ".$item['scene'].", ".$item['cmd'].", on: ".date('[d/M/Y:H:i:s]',$item['secs']));
 		
 		for ($i=count($this->q_list); $i>0 ; $i--) {
 			if ( $this->q_list[$i-1]['secs'] < $item['secs'] ) {
@@ -638,8 +637,9 @@ class Sock {
 					continue;
 				}
 				
-				// Select returns client with empty messages, closed connection
-				else if (empty($buf)) {
+				// Select returns client with empty messages, means closed connection
+				else 
+				if (empty($buf)) {
 					socket_getpeername($client, $clientIP, $clientPort);
 					$log->lwrite("s_recv:: buffer empty for ".$clientIP.":".$clientPort);
 					if ($debug>0) $log->lwrite("r_recv:: no data in buf, close socket for key: ".$key." ");
@@ -650,13 +650,9 @@ class Sock {
 					continue;
 				}
 				
-				//if (!$buf = trim($buf)) {
-				//	if ($debug>0) $log->lwrite("r_recv:: trim of buffer <".$buf."> failed");
-                	//continue;						// Nothing left after trimming
-				//}
-				
 				// Websockets send a header back upon connect to upgrade the connection
-				// First see if this is a websocket request, and do the upgrade connection. First characters are 'GET'
+				// First see if this is a websocket request, and do the upgrade connection. 
+				// First characters are 'GET' for Websockets
 				//
 				if (substr($buf,0,3) == "GET" ) {
 					$this->sockadmin[$ckey]['type'] = 'websocket';
@@ -680,8 +676,6 @@ class Sock {
 						// cause only if we connect from remote, we'll need to login first
 						// QQQQ
 					}
-					
-					
 					// If external IP and password check failed, or if the IP is no a well-known IP ->
 					// then close the socket again and deny access
 					
@@ -693,47 +687,28 @@ class Sock {
 				//
 				if ($debug>1) $log->lwrite("r_recv:: sockettype: ".$this->sockadmin[$ckey]['type']);
 				
-				if ($this->sockadmin[$ckey]['type'] == 'websocket' ) {
+				if ($this->sockadmin[$ckey]['type'] == 'websocket' ) 
+				{
 					$ubuf = $this->s_unmask($buf);
-					$dbuf = json_decode($ubuf,true); 		//json decode 
-					if ($dbuf === NULL ) {
-						$log->lwrite("r_recv:: cannot decode json. len: ".strlen($ubuf).". buf: <".print_r($ubuf,true).">");
-						return(-1);
-					}
-					return($dbuf);							// json array object
+					return($ubuf);							// json array object
 				}
 				
 				// type must be a rawsocket
-				else if ($this->sockadmin[$ckey]['type'] == 'rawsocket' ) {
-					
-					$dbuf = json_decode($buf,true); 		//json decode
-					if ($dbuf === NULL ) {
-						$log->lwrite("r_recv:: cannot decode raw message json. len: ".strlen($dbuf).". buf: <".print_r($dbuf,true).">");
-						return($buf);
-					}
-					else {
-											
-            			if ($dbuf == 'quit') {
-                			unset($this->clients[$ckey]);
-							unset($this->sockadmin[$ckey]);
-                			socket_close($client);
-                			return(-1);
-						}
-				
-						if ($debug>1) {
+				else if ($this->sockadmin[$ckey]['type'] == 'rawsocket' ) 
+				{
+					if ($debug>1) {
 							$i2=time();
 							socket_getpeername($client, $clientIP, $clientPort);
 							$log->lwrite("s_recv:: Raw buf from IP: ".$clientIP.":".$clientPort
-									.", buf: <".$dbuf.">, in ".($i2-$i1)." seconds");
+									.", buf: <".$buf.">, in ".($i2-$i1)." seconds");
 						}
-						return($dbuf);							// = string of ICS commands
-					}//else
+					return($buf);
 				}
 				
 				// Unknown type (I guess)
 				else {
 					$i2=time();
-					$log->lwrite("s_recv:: Unknown type buf from IP: ".$clientIP.":".$clientPort
+					$log->lwrite("ERROR s_recv:: Unknown type buf from IP: ".$clientIP.":".$clientPort
 									.", buf: <".$buf.">, in ".($i2-$i1)." seconds");
 				}
 		}//for
@@ -748,7 +723,7 @@ class Sock {
 		global $log;
 		global $interval;
 		
-		if (!is_resource($this->rsock)) {	// NOt really necessary now
+		if (!is_resource($this->rsock)) {	// Not really necessary now
             $this->s_open();
         }
 		$this->read = array();
@@ -1523,21 +1498,52 @@ while (true):
 	// Lets look to the socket layer and see whether there are messages for use
 	// and handle these messages. We will put actions in a QUEUE based on timestamp.
 
-	while ( ($data = $sock->s_recv() ) != -1 )
+	while ( ($buf = $sock->s_recv() ) != -1 )
 	{
-		// The data structure read is decoded into a human readible string. jSOn or raw
+		// The data structure read is decoded into a human readible string. jSon or raw
 		//
-		if ($debug>1) $log->lwrite("main:: s_recv returned jSOn with ".count($data)." elements" );
+		if ($debug>1) $log->lwrite("main:: s_recv returned jSon with ".count($buf)." elements" );
 		
 		// Once we receive first message, read for more messages later, but without!! a timeout
 		if ( $sock->s_wait(0) == -1) {
 			$log->lwrite("main:: Failure to set wait (time=0) on socket: ");
 		}
 		
-		// check for json message format which is an array, always at least 3 fields.
-		// whereare a regular raw message contains one string only
-		if (count($data) > 1) 
-		{	
+		// Make sure that if two json messages are present in the buffer
+		// that we decode both of them..
+		$i = 0;
+		while (($pos = strpos($buf,"}",$i)) != FALSE )
+		{
+			$log->lwrite("r_recv:: XXX ".substr($buf,$i,($pos+1-$i)) );
+			
+			$data = json_decode(substr($buf,$i,($pos+1-$i)), true);
+												
+			if ($data == null) {
+				switch (json_last_error()) {
+							case JSON_ERROR_NONE:
+            					$log->lwrite(" - No errors");
+        					break;
+        					case JSON_ERROR_DEPTH:
+        					    $log->lwrite(" - Maximum stack depth exceeded");
+       						break;
+       						case JSON_ERROR_STATE_MISMATCH:
+            					$log->lwrite(" - Underflow or the modes mismatch");
+        					break;
+        					case JSON_ERROR_CTRL_CHAR:
+            					$log->lwrite(" - Unexpected control character found");
+        					break;
+        					case JSON_ERROR_SYNTAX:
+            					$log->lwrite(" - Syntax error, malformed JSON");
+        					break;
+        					case JSON_ERROR_UTF8:
+            					$log->lwrite(" - Malformed UTF-8 characters, possibly incorrectly encoded");
+        					break;
+        					default:
+            					$log->lwrite(" - Unknown error");
+        					break;
+				}
+			}
+
 			// Print the fields in the jSon message
 			if ($debug>0) {
 				$msg = "";
@@ -1545,7 +1551,7 @@ while (true):
 					$msg .= " ".$key."->".$value.", ";
 				}
 				//$log->lwrite("main:: Receiving json: data: <".$cmd.">");
-				$log->lwrite("main:: Receiving json msg: <".$msg.">");
+				$log->lwrite("main:: Rcv json msg: <".$msg.">");
 			}
 			
 			// Compose ACK reply for the client that sent us this message.
@@ -1559,8 +1565,7 @@ while (true):
 			);
 			if ( false === ($tmp = json_encode($reply)) ) {
 				$log->lwrite("main:: error json_encode reply: <".$reply['tcnt'].",".$reply['action'].">");
-			} // QQQ
-			
+			} 
 			$answer = $sock->s_encode($tmp);			// Websocket encode
 			if ($debug>0) 
 				$log->lwrite("main:: json reply data: <".$tmp."> len: ".strlen($tmp).":".strlen($answer));
@@ -1568,6 +1573,10 @@ while (true):
 			// Take action on the message based on the action field of the message
 			switch ($data['action']) 
 			{
+				case "ping":
+					if ($debug>0) $log->lwrite("main:: PING received");
+				break;
+				
 				case "gui":
 					// GUI message, probably in ICS coding
 					// For compatibility with raw message format, we just use ICS format
@@ -1592,13 +1601,13 @@ while (true):
 									 ", temperature: ". $data['temperature'].
 									 ", humidity: ".  $data['humidity'] 
 									 );
-					$log->lwrite("main:: weather message: temperature: ".$data['temperature']);
+					$log->lwrite("main:: weather msg: temperature: ".$data['temperature']);
 					
 					// Send something to the client GUI?
 					$item = array (
-						'secs'  => time(),						// Set execution time to now or asap
-						'tcnt' => $tcnt."",						// Transaction count
-						'type' => 'json',						// We want a json message & json encoded values.
+						'secs'  => time(),					// Set execution time to now or asap
+						'tcnt' => $tcnt."",					// Transaction count
+						'type' => 'json',					// We want a json message & json encoded values.
 						'action' => 'weather',
 						'brand' => $data['brand'],
 						'address' => $data['address'],
@@ -1611,6 +1620,10 @@ while (true):
 					
 					// If we push this message on the Queue with time==0, it will
 					// be executed in phase 2
+					if ($debug>0) {
+						$log->lwrite("main:: q_insert action: ".$item['action']
+							.", temp: ".$item['temperature'].", on: ".date('[d/M/Y:H:i:s]',$item['secs']));
+					}
 					$queue->q_insert($item);
 				break;
 				
@@ -1625,13 +1638,17 @@ while (true):
 				break;
 				
 				default:
-					$log->lwrite("main:: json data type: <".$data['type']."> not found using raw message");
+					$log->lwrite("ERROR main:: json data type: <".$data['type']
+									."> not found using raw message");
 					$cmd = $data['message'];
 			}
+		
+			$i = $pos+1;
+			if ($pos >= strlen($buf)) break;
 		}
 		
 		// empty message
-		else if (strlen($data) == 0) 
+		if (strlen($data) == 0) 
 		{
 			if ($debug>0) $log->lwrite("main:: s_recv returned empty data object");
 			break;
@@ -1642,7 +1659,7 @@ while (true):
 		//
 		else 
 		{
-			if ($debug>1) $log->lwrite("main:: Receiving raw data cmd on socket: <".$data.">");
+			if ($debug>0) $log->lwrite("main:: ERROR Rcv raw data cmd on rawsocket: <".$data.">");
 			list ($tcnt, $cmd) = explode(',' , $data);
 			if (strcmp($cmd, "PING") === 0) {
 					if ($debug>0) $log->lwrite("main:: PING received");
@@ -1664,14 +1681,14 @@ while (true):
 			}
 			if ($debug>2) $log->lwrite("main:: success writing reply on socket. tcnt: ".$tcnt);
 		
-			if ($debug>0) $log->lwrite("main:: raw cmd to parse: ".$cmd);
-		
 			// Actually, although we might expect more messages we should also
 			// be able to "glue" 2 buffers together if the incoming message is split by TCP/IP
 			// message_parse parses the $cmd string and will push the commands
 			// to the queue.
+			if ($debug>0) $log->lwrite("main:: raw cmd to parse: ".$cmd);
 			message_parse($cmd);
 		}
+		
 	}
 
 
@@ -1683,8 +1700,8 @@ while (true):
 	// the max waiting time for listening on the socket before waking-up...
 	
 
-	$tim = time();				// Get seconds since 1970. Timestamp. Makes sure that current time is at least as
-								// big as the time recorded for the queued items.
+	$tim = time();				// Get seconds since 1970. Timestamp. Makes sure that current time 
+								// is at least as big as the time recorded for the queued items.
 	
 	if ($debug > 2) {
 		$log->lwrite("main:: printing and handling queue");

@@ -6,16 +6,6 @@ require_once( './backend_lib.php' );
 RASP
 This is the backend php script for the handling of Raspberry communication.
 
-Unlike the ICS-1000, which is a stateful controller device in itself,
-	the Raspberry controller is a combination of:
-	
-- Raspberry PI (512 rev B) device (with housing)
-- A SD card of around 8GB
-- A 433 MHz transmitter
-- A Linux distribution, wich Apache2 + PHP5 + MySQL software
-- Wire library software for the Raspberry
-- The ported library for wireless communication
-
 NOTE: The calling ajax front-end can specify ANY function, but only these are supported
 by this file as specified below:
 
@@ -122,10 +112,10 @@ switch($action)
 if ($ret >= 0) 
 {
 	$send = array(
-    'tcnt' => $ret,
-    'status' => 'OK',
-	'appmsg'=> $appmsg,
-	'apperr'=> $apperr,
+		'tcnt' => $ret,
+		'status' => 'OK',
+		'appmsg'=> $appmsg,
+		'apperr'=> $apperr,
     );
 	$output=json_encode($send);
 }

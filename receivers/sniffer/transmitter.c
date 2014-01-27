@@ -40,6 +40,7 @@
 #include "LamPI.h"
 
 extern int verbose;
+extern int debug;
 
 // Declarations for Sockets
 int sockfd;	
@@ -68,8 +69,12 @@ int dkaku(char *gaddr, char *uaddr, char *val)
 		int ivalue= (int) ( (atoi(val)-1)/2 );
 		sprintf(fname,"cd /home/pi/exe; ./kaku -g %s -n %s %d", gaddr,uaddr,ivalue);
 	}
-	printf("dtransmit:: %s\n",fname);
+	stop_ints = 1;
+	//printf("dtransmit:: %s\n",fname);
+	
 	ret = system(fname);
+	stop_ints = 0;
+	
 	if (ret == -1) fprintf(stderr,"system failed");
 	return(0);
 
@@ -88,7 +93,11 @@ int send_2_device(char *brand, char *gaddr, char *uaddr, char *val)
 	char fname[255];
 	sprintf(fname,"cd /home/pi/exe; ./%s -g %s -n %s %s", brand,gaddr,uaddr,val);
 	printf("send_2_device:: %s\n",fname);
+	
+	stop_ints = 1;
 	ret = system(fname);
+	stop_ints = 0;
+	
 	if (ret == -1) {
 		fprintf(stderr,"system failed");
 		return (-1);
@@ -242,8 +251,11 @@ int read_socket_and_transmit(int sockfd)
 	{
 		timestamp = millis();
 		if (verbose == 1) printf("PING\n");
-		sprintf(buf,"%d,PING",++socktcnt%1000);		// Keep_Alive and check for connection
-			
+		//sprintf(buf,"%d,PING",++socktcnt%1000);	// Keep_Alive and check for connection
+		
+		sprintf(buf,"{\"tcnt\":\"%d\",\"action\":\"ping\",\"type\":\"json\"}", 
+						socktcnt%1000);
+		
 		if (write(sockfd, buf, strlen(buf)) == -1) {
 			perror("Error writing to socket\n");
 			close(sockfd);
@@ -298,7 +310,7 @@ int read_socket_and_transmit(int sockfd)
 					cJSON_Delete(root);
 					break;
 				}
-				ok = parse_cjson(root, "action");		// My ad-on parsing function 
+				ok = parse_cjson(root, "action");		// My add-on parsing function 
 				if  ((ok != NULL) && (strcmp(ok,"ack") == 0))
 								{ goto next; }		// Ignore OK messages for the receiver (oh oh)
 				

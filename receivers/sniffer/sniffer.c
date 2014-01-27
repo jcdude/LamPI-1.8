@@ -293,9 +293,8 @@ int print_statistics(int row)
 int check_n_write_socket(char *binary, char *chkbuf , int binary_count)
 {
 	int i;
-	// QQQ
 	// Check whether 2 subsequent messages are the same...
-	// XXX This code can easiy be adapted for a double-check if check==2 ...
+	// NOTE:: This code can easiy be adapted for a double-check if check==2 ...
 	if (checks == 0) 
 	{
 		for (i=0; i<binary_count; i++) chk_buf[i] = binary[i];
@@ -1367,8 +1366,9 @@ void lampi_interrupt (void)
 	// As long as we process output, (we then have gathered a complete message) 
 	// or the buffer is full (!), stop receiving!
 	//
-	if (stop_ints) return;
-	
+	if (stop_ints) {
+		return;
+	}
 	// With an open receiver, we receive more short pulses than long pulses.
 	// Specially shorter than 100 uSec means reubbish in most cases.
 	// We therefore filter out too short or too long pulses. This method works as a low pass filter.

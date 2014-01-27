@@ -12,10 +12,10 @@
 // Use this var as a way to determine what details are logged and what not...
 // At the moment, the user has to kill the daemon and restart with new debug value.   
 // Val 0: No Debug, just logging of events in queue
-// Val 1: 
+// Val 1: Verbose mode
 // Val 2: Normal Debug level
 // Val 3: Detail debugging info. Will fill up the logfile Quickly
-	$debug = 2;
+	$debug = 1;
 
 // MySQL DATABASE SETTINGS
 // Default server is localhost for most situations. However, should you want to run the
@@ -35,6 +35,7 @@
 //
 	$config_dir="config/";
 	$skin_dir  ="styles/";
+	$log_dir="../log/";
 
 
 // Port Settings for the LamPI Daemon (!) LamPI-daemon.php file
