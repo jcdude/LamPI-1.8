@@ -1102,6 +1102,7 @@ function message_parse($cmd) {
 				// We cannot sleep in the background now, it will give a timeout!!
 				// we'll have to implement something like a timeer through cron or so
 				$item = array(
+					'action'=> "gui",
     				'scene' => $scene_name,
     				'cmd'   => $splits[$i],
 					'secs'  => ($hrs*3600)+($mins*60)+$secs+ $tim
@@ -1847,7 +1848,7 @@ while (true):
 					// broadcasting to the LamPI-receiver process where we can read the command
 					// and call the correct handler directly.
 				break;
-				
+				// QQQ
 				default:
 					$log->lwrite("main:: NO DEFINED ACTION: ".$items[$i]['action']);
 			}//switch	

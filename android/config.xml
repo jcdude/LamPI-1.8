@@ -7,10 +7,10 @@
         id = "org.westenberg.lampi"
         version = "1.0.0">
 
-    <name>LamPI 1.7</name>
+    <name>LamPI 1.8</name>
 
     <description>
-        LamPI Controller for kaku equipment.
+        LamPI Controller for 433MHz equipment
     </description>
 
     <author href="http://westenberg.org/kaku" email="mw12554@hotmail.com">
