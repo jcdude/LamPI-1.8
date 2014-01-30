@@ -150,7 +150,6 @@
 			margin-bottom: 5px;
 			background-color: #EEE;
 		}
-		
 		/* Indicating a mouse over for a room button */
 		.hr_button:hover {
 			font-weight: bold;
@@ -171,7 +170,6 @@
 			margin-bottom: 5px;
 			background-color:#EEE;
 		}
-		
 		.hs_button:hover {
 			font-weight: bold;
 			background-color: #FF9;
@@ -185,11 +183,11 @@
 			height: 35px;
 			background-color: #EEE;
 		}
-		
 		.ht_button:hover {
 			font-weight: bold;
 			background-color: #FF9;
 		}
+		
 		/* Header Handset definitions */
 		.hh_button {
 			color: #90F;
@@ -198,8 +196,20 @@
 			height: 35px;
 			background-color: #EEE;
 		}
-		
 		.hh_button:hover {
+			font-weight: bold;
+			background-color: #FF9;
+		}
+				
+		/* Header Weather definitions */
+		.hw_button {
+			color: #90F;
+			margin-top: 5px;
+			width: 100px;
+			height: 35px;
+			background-color: #EEE;
+		}
+		.hw_button:hover {
 			font-weight: bold;
 			background-color: #FF9;
 		}
@@ -251,8 +261,13 @@
 			height:35px;
 			width: 35px;
 		}
+		/* Command Weather button */
+		.cw_button {
+			height:35px;
+			width: 35px;
+		}
 		/* Command Config button */
-		.cc_button {
+		.cw_button {
 			height:35px;
 			width: 35px;
 		}

@@ -308,7 +308,7 @@ class Sock {
 	public function s_encode($message, $messageType='text') {
 		global $log;
 		global $debug;
-		if ($debug > 0) $log->lwrite("s_encode:: message: ".$message.", type: ".$messageType);
+		if ($debug >= 2) $log->lwrite("s_encode:: message: ".$message.", type: ".$messageType);
 		switch ($messageType) {
 			case 'continuous':
 				$b1 = 0;
@@ -481,18 +481,19 @@ class Sock {
 		global $log, $debug;
 		
 		if ($debug>0) 
-				$log->lwrite("s_bcast:: writing message <".$cmd_pkg."> to all connected clients");
+				$log->lwrite("s_bcast:: writing to connected clients: <".$cmd_pkg.">");
 				
 		foreach ($this->clients as $key => $client) 
 		{  
 			if (!is_resource($client)) {
-				$log->lwrite("s_bcast:: failed: socket client not open: ".$this->sockadmin[$key]['ip']);
+				$log->lwrite("ERROR s_bcast:: failed: socket client not open: ".$this->sockadmin[$key]['ip']);
 				continue;
         	}
 			if ($this->sockadmin[$key]['type'] != 'websocket' ) {
-				if ($debug>1) $log->lwrite("s_bcast:: Warning: Not a websocket: ".$this->sockadmin[$key]['ip'].":"
-																		.$this->sockadmin[$key]['port'].", type "
-																		.$this->sockadmin[$key]['type']." need upgrade?");
+				if ($debug>=2) $log->lwrite("s_bcast:: Warning: Not a websocket: "
+									.$this->sockadmin[$key]['ip'].":"
+									.$this->sockadmin[$key]['port'].", type "
+									.$this->sockadmin[$key]['type']." need upgrade?");
 				$message = $cmd_pkg;
 			}
 			else // Encode the message accoring to websocket standard
@@ -504,14 +505,14 @@ class Sock {
 				
     		if (socket_write($client,$message,strlen($message)) === false)
    			{
-     			$log->lwrite( "s_bcast:: write failed:: ".socket_strerror(socket_last_error()) );
+     			$log->lwrite( "ERROR s_bcast:: write failed:: ".socket_strerror(socket_last_error()) );
 				socket_close($client);					//  This is one of the accepted connections
 				unset($this->clients[$key]);
 				unset($this->sockadmin[$key]);
 				continue;
     		}
 		
-    		if ($debug > 0) {
+    		if ($debug >= 2) {
 				$log->lwrite("s_bcast:: socket_write to IP: ".$this->sockadmin[$key]['ip'].
 										":".$this->sockadmin[$key]['port']." success");
 			}
@@ -1490,7 +1491,7 @@ while (true):
 	// If there is nothing on the queue, items only are inserted over sockets or over the timer,
 	// run every $interval second.
 		if ( $sock->s_wait( $interval ) === -1) {
-			$log->lwrite("main:: Failure to set waittime on socket: ");
+			if (debug>=1) $log->lwrite("main:: Failure to set wait time on socket: ");
 		}
 	}
 	
@@ -1498,16 +1499,16 @@ while (true):
 	// 1. STAGE 1 - LISTEN TO THE SOCKET LAYER FOR INCOMING MESSAGES
 	// Lets look to the socket layer and see whether there are messages for use
 	// and handle these messages. We will put actions in a QUEUE based on timestamp.
-
+	
 	while ( ($buf = $sock->s_recv() ) != -1 )
 	{
 		// The data structure read is decoded into a human readible string. jSon or raw
 		//
-		if ($debug>1) $log->lwrite("main:: s_recv returned jSon with ".count($buf)." elements" );
+		if ($debug>=2) $log->lwrite("main:: s_recv returned Json with ".count($buf)." elements" );
 		
 		// Once we receive first message, read for more messages later, but without!! a timeout
 		if ( $sock->s_wait(0) == -1) {
-			$log->lwrite("main:: Failure to set wait (time=0) on socket: ");
+			$log->lwrite("ERROR main:: Failure to set wait (time=0) on socket: ");
 		}
 		
 		// Make sure that if two json messages are present in the buffer
@@ -1515,7 +1516,7 @@ while (true):
 		$i = 0;
 		while (($pos = strpos($buf,"}",$i)) != FALSE )
 		{
-			$log->lwrite("r_recv:: XXX ".substr($buf,$i,($pos+1-$i)) );
+			$log->lwrite("r_recv:: ".substr($buf,$i,($pos+1-$i)) );
 			
 			$data = json_decode(substr($buf,$i,($pos+1-$i)), true);
 												
@@ -1546,12 +1547,11 @@ while (true):
 			}
 
 			// Print the fields in the jSon message
-			if ($debug>0) {
+			if ($debug>=2) {
 				$msg = "";
 				foreach ($data as $key => $value) {
 					$msg .= " ".$key."->".$value.", ";
 				}
-				//$log->lwrite("main:: Receiving json: data: <".$cmd.">");
 				$log->lwrite("main:: Rcv json msg: <".$msg.">");
 			}
 			
@@ -1565,10 +1565,10 @@ while (true):
 				'message' => "OK"
 			);
 			if ( false === ($tmp = json_encode($reply)) ) {
-				$log->lwrite("main:: error json_encode reply: <".$reply['tcnt'].",".$reply['action'].">");
+				$log->lwrite("ERROR main:: json_encode reply: <".$reply['tcnt'].",".$reply['action'].">");
 			} 
 			$answer = $sock->s_encode($tmp);			// Websocket encode
-			if ($debug>0) 
+			if ($debug>=2) 
 				$log->lwrite("main:: json reply data: <".$tmp."> len: ".strlen($tmp).":".strlen($answer));
 			
 			// Take action on the message based on the action field of the message
@@ -1602,7 +1602,6 @@ while (true):
 									 ", temperature: ". $data['temperature'].
 									 ", humidity: ".  $data['humidity'] 
 									 );
-					$log->lwrite("main:: weather msg: temperature: ".$data['temperature']);
 					
 					// Send something to the client GUI?
 					$item = array (
@@ -1622,8 +1621,7 @@ while (true):
 					// If we push this message on the Queue with time==0, it will
 					// be executed in phase 2
 					if ($debug>0) {
-						$log->lwrite("main:: q_insert action: ".$item['action']
-							.", temp: ".$item['temperature'].", on: ".date('[d/M/Y:H:i:s]',$item['secs']));
+						$log->lwrite("main:: q_insert action: ".$item['action'].", temp: ".$item['temperature']);
 					}
 					$queue->q_insert($item);
 				break;
@@ -1631,11 +1629,13 @@ while (true):
 				case "energy":
 					// Energy cation message received
 					// XXX tbd
+					$log->lwrite("main:: q_insert action: ".$item['action']);
 				break;
 				
 				case "sensor":
 					// Received a message from a sensor
 					// XXX tbd
+					$log->lwrite("main:: q_insert action: ".$item['action']);
 				break;
 				
 				default:
@@ -1651,7 +1651,7 @@ while (true):
 		// empty message
 		if (strlen($data) == 0) 
 		{
-			if ($debug>0) $log->lwrite("main:: s_recv returned empty data object");
+			if ($debug>=2) $log->lwrite("main:: s_recv returned empty data object");
 			break;
 		}
 		
@@ -1660,10 +1660,10 @@ while (true):
 		//
 		else 
 		{
-			if ($debug>0) $log->lwrite("main:: ERROR Rcv raw data cmd on rawsocket: <".$data.">");
+			if ($debug>=1) $log->lwrite("ERROR main:: Rcv raw data cmd on rawsocket: <".$data.">");
 			list ($tcnt, $cmd) = explode(',' , $data);
 			if (strcmp($cmd, "PING") === 0) {
-					if ($debug>0) $log->lwrite("main:: PING received");
+					if ($debug>=1) $log->lwrite("main:: PING received");
 					break;
 			}
 			$reply = array (
@@ -1673,20 +1673,20 @@ while (true):
 				'message' => "OK"
 				);
 			if ( false === ($answer = json_encode($reply)) ) {
-				$log->lwrite("main:: error json_encode: <".$reply['tcnt'].",".$reply['action'].">");
+				$log->lwrite("ERROR main:: json_encode failed: <".$reply['tcnt'].",".$reply['action'].">");
 			}
 		
 			// Reply to the client with the transaction number just received
 			if ( $sock->s_send($answer) == -1) {
-				$log->lwrite("main:: failed writing reply on socket, tcnt: ".$tcnt);
+				$log->lwrite("ERROR main:: failed writing reply on socket, tcnt: ".$tcnt);
 			}
-			if ($debug>2) $log->lwrite("main:: success writing reply on socket. tcnt: ".$tcnt);
+			if ($debug>=3) $log->lwrite("main:: success writing reply on socket. tcnt: ".$tcnt);
 		
 			// Actually, although we might expect more messages we should also
 			// be able to "glue" 2 buffers together if the incoming message is split by TCP/IP
 			// message_parse parses the $cmd string and will push the commands
 			// to the queue.
-			if ($debug>0) $log->lwrite("main:: raw cmd to parse: ".$cmd);
+			if ($debug>=1) $log->lwrite("main:: raw cmd to parse: ".$cmd);
 			message_parse($cmd);
 		}
 		
@@ -1725,10 +1725,10 @@ while (true):
 		{
 			// For every item ...
 			
-			if ($debug>0) 
+			if ($debug>1) 
 				$log->lwrite("main:: q_pop: ".$items[$i]['secs'].", scene: ".$items[$i]['scene']
 							.", cmd: ".$items[$i]['cmd']);
-			// XXX Do we have the latest list of devices??
+			// Do we have the latest list of devices??
 			// run-a-command-to-get-the-latest-list-of-devices;;;;;
 			
 			// What to do if the command is all off. We have to expand the command to include all
@@ -1742,7 +1742,7 @@ while (true):
 			switch($items[$i]['action'])
 			{
 				case "weather":
-					$log->lwrite("main:: RECOGNIZED WEATHER MESSAGE");
+					if (debug>=1) $log->lwrite("main:: RECOGNIZED WEATHER MESSAGE");
 					$bcst = array (	
 						// First part of the record specifies this message type and characteristics
 						'tcnt' => "0",
@@ -1766,7 +1766,7 @@ while (true):
 				break;
 				
 				case "gui":
-					$log->lwrite("main:: RECOGNIZED GUI MESSAGE");
+					if (debug>=1) $log->lwrite("main:: RECOGNIZED GUI MESSAGE");
 					$cmd = "";
 					if (substr($items[$i]['cmd'],-2,2) == "Fa") {
 						list( $room, $value ) = sscanf ($items[$i]['cmd'], "!R%dF%s" );
@@ -1800,24 +1800,26 @@ while (true):
 					$device = $dlist->get($room, $dev);
 
 					// For which room, device is it, and what is the action?
-			
 					if (substr($value, 0, 2) == "dP" ) {
 						$value = substr($value, 2);
 						$device['val'] = $value;
 						$device['lastval'] = $value;
 						$sndval = $value;
 					} 
+					
 					// Must be a switch turned on
 					else if ($value == '1') { 						// in case F1
 						if ($device['type'] == "switch") $device['val']='1';
 						else $device['val']=$device['lastval'];
 						$sndval = "on";
 					} 
+					
 					// Must be a switch turned off
 					else { 
 						$device['val']= "0"; 						// F0
 						$sndval="off";
 					}
+					
 					$log->lwrite("sql device upd: ".$device['name'].", id: "
 							.$device['id'].", room: ".$device['room'].", val: ".$device['val']);
 	
@@ -1837,7 +1839,7 @@ while (true):
 						'message' => $items[$i]['cmd']		// The GUI message, ICS encoded 
 					);
 					if ( false === ($answer = json_encode($bcst)) ) {
-						$log->lwrite("main:: error broadcast encode: <".$bcst['tcnt']
+						$log->lwrite("ERROR main:: broadcast encode: <".$bcst['tcnt']
 									.",".$bcst['action'].">");
 					}
 			
@@ -1977,6 +1979,7 @@ while (true):
 					// we'll have tom implement something like a timeer through cron or so
 					$item = array(
     					'scene' => $scene_name,
+						'action' => 'gui',
     					'cmd'   => $splits[$i],
 						'secs'  => ($hrs*3600)+($mins*60)+$secs+ $tim
    				 	);

@@ -758,7 +758,7 @@ function load_weatherdb()
 	global $dbname, $dbuser, $dbpass, $dbhost;	
 	global $appmsg, $apperr;
 	
-	$weather = array();
+	$weatherdb = array();
 	
 	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
 	if ($mysqli->connect_errno) {

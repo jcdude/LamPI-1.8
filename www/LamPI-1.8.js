@@ -6,7 +6,7 @@
 //
 // Version 1.6, Nov 10, 2013. Implemented connections, started with websockets option next (!) to .ajax calls.
 // Version 1.7, Dec 10, 2013. Work on the mobile version of the program
-// Version 1.8, Jan 18, 2014. Start support for sensors
+// Version 1.8, Jan 18, 2014. Start support for (weather) sensors
 //
 // This is the code to animate the front-end of the application. The main screen is divided in 3 regions:
 //
@@ -113,7 +113,7 @@ var max_scenes = 16;									// max nr of scenes. ICS-1000 has 20
 var max_devices = 16;									// max nr. of devices per room. ICS-1000 has 6
 var max_timers = 16;
 var max_handsets = 8;
-var max_weather = 4;									// Maximum number of weather stations
+var max_weather = 4;									// Maximum number of weather stations receivers
 
 // Actually, sum of timers and scenes <= 20 for ICS-1000
 
@@ -190,17 +190,18 @@ var max_weather = 4;									// Maximum number of weather stations
 //
 // HANDSETS
 //
-var rooms={};
-var devices={};
-var moods={};
-var scenes={};
-var timers={};
-var settings={};
-var brands={};
-var handsets={};
-// Weather Stations Config. The weatherdb array contains all read weather values.
-var weather={};
-var weatherdb={};
+// WEATHER
+//
+var rooms={};			// For most users, especially novice this is the main/only screen
+var devices={};			// Administration of room devices (lamps or switches)
+var moods={};			// NOT USED
+var scenes={};			// Series of device actions that are grouped and executed together
+var timers={};			// Timing actions that work on a defined scene
+var brands={};			// All brands of equipment that is recognized by the daemon
+var handsets={};		// Handsets or transmitters of code. Action/Impuls, Klikaanklikuit supported
+var weather={};			// The administration of weather receivers, and their last values
+var weatherdb={};		// An array with ALL historical values for the weather station (Ouch)
+var settings={};		// Set debug level and backup/restore the configuration
 
 // ---------------------------------------------------------------------------------
 //	This function waits until the document DOM is ready and then 
@@ -1315,7 +1316,7 @@ function init_websockets() {
 				// Changes in settings are less urgent and frequent
 				case "upd":
 				case "gui":
-				
+					var msg   = rcv.message;
 					message("action: "+action+", tcnt: "+tcnt+", mes: "+msg+", type: "+type);
 					// if content is coded in json, decode rest of message
 					switch (type) {
@@ -1323,7 +1324,7 @@ function init_websockets() {
 							console.log("onmessage:: read upd message. Type is: "+type+". Json is not supported yet");
 							var gaddr  = rcv.gaddr;				// Group address of the receiver
 							var uaddr  = rcv.uaddr;				// Unit address of the receiver device
-							var val   = rcv.val;
+							var val    = rcv.val;
 							var brand  = rcv.brand;				// Brand of the receiver device
 						break;
 						
@@ -1363,22 +1364,67 @@ function init_websockets() {
 					}
 				break;
 				
+				// If we receive a weather message, we scan the incoming message based
+				// on the addr/channel combination and look those up in the weather array.
+				// If the weather station is not present in the array, we will not show its values !!!
+				// The weather stations that we allow for receiving are specified in the 
+				// database.cfg file (and in the database).
+				// Next versions of the GUI should allow ore dynamic specification of sensors
 				case 'weather':
-					var address = rcv.address;
-					var channel = rcv.channel;
+					var location;
+					var address		= rcv.address;
+					var channel		= rcv.channel;
 					var temperature = rcv.temperature;
-					var humidity = rcv.humidity;
-					message("Weather:: addr: "+address+", chl: "+channel+", temp: "
-							+temperature+", humi: "+humidity+"%");
-					console.log("Weather:: addr: "+address+", chl: "+channel+", temp: "
-							+temperature+", humi: "+humidity+"%");
-					
+					var humidity 	= rcv.humidity;
+					var brand		= rcv.brand;
+					var windspeed   = rcv.windspeed;
+					var winddirection = rcv.winddirection;
+					var j;
+					for (j = 0; j<weather.length; j++ )
+					{
+       					if (( weather[j]['address'] == address ) &&
+							( weather[j]['channel'] == channel ))
+  						{
+							// return value of the object
+							break;
+						}
+					}
+					// if we found a match, j will be smaller than length of array
+					// So we have the record that partly describes the current sensor
+					// and partly needs to be filled with the latest sensor values received.
+					if (j<weather.length)
+					{
+						weather[j]['temperature']=temperature;
+						weather[j]['humidity']=humidity;
+						weather[j]['windspeed']=windspeed;
+						weather[j]['winddirection']=winddirection;
+						location = weather[j]['location'];
+						var msg="";
+						for (j=0;j<weather.length;j++)
+						{
+							msg += "Weather @ "+weather[j]['location'];
+							msg += ": temp: "+weather[j]['temperature'];
+							msg += ", humi: "+weather[j]['humidity']+"%<br\>";
+							console.log("Weather @ "+weather[j]['location']+": temp: "+weather[j]['temperature']
+								+", humi: "+weather[j]['humidity']+"%");
+						}
+						// If the weather screen is visible at the moment ...
+						//if (s_screen == 'weather')
+						//{
+						//	activate_weather(s_weather_id);	
+						//}
+						message(msg);
+					}
 				break;
 				
+				// Generic sensor messages, such as connected one wire systems to the RasPI
+				//
 				case 'sensor':
 					console.log("Lampi.js:: received sensor message");
 				break;
 				
+				// Support for energy systems is tbd
+				//
 				case 'energy':
 					console.log("Lampi.js:: received energy message");
 				break;
@@ -1524,7 +1570,10 @@ function message(txt,lvl)
 
 
 // -------------------------------------------------------------------------------------
-// Set the initial room, and mark the button of that room
+// FUNCTION INIT
+// This function is the first function called when the database is loaded
+// It will setupt the menu area and load the first room by default, and mark 
+// the button of that room
 // See function above, we will call from load_database !!!
 //
 function init() {
@@ -1895,7 +1944,7 @@ function init_handsets(cmd)
 
 
 // ------------------------------------------------------------------------------------------
-// Setup the scenes event handling
+// Setup the settings event handling
 //
 function init_settings(cmd) 
 {
@@ -1932,7 +1981,44 @@ function init_settings(cmd)
 		activate_setting(s_setting_id);	
 }
 
-
+// ------------------------------------------------------------------------------------------
+// Setup the weather event handling
+// QQQQ
+function init_weather(cmd) 
+{
+		$("#gui_header").empty();
+		$("#gui_header").append('<table border="0">');	// Write table def to DOM
+		var table = $( "#gui_header" ).children();		// to add to the table tree in DOM
+		var msg = 'Init weather, config read: ';
+		
+		// XXX class rroom?
+		var but = '<tr class="rroom">' ;
+		but += '<td>';
+		for (var j = 0; j<weather.length; j++ ){
+  
+			var weather_id = weather[j]['id'];
+			var location = weather[j]['location'];
+			var temperature = weather[j]['temperature'];
+			msg += j + ', ';
+			
+			if ( weather_id == s_weather_id ) {
+				but +=  weather_button(weather_id, location, "hover");
+			}
+			else
+			{
+				but +=  weather_button(weather_id, location);
+			}	
+		}
+		if (debug>1) message(msg);
+		but += '</td>';	
+		but +=  '<td>';
+		but += '<input type="submit" id="Help" value= "?" class="cc_button help_button">'  ;
+		but += '</td>';
+		$(table).append(but);	
+		
+		s_screen = 'weather';
+		activate_weather(s_weather_id);	
+}
 
 // ------------------------------------------------------------------------------------------
 // Setup the main menu (on the right) event handling
@@ -1963,7 +2049,11 @@ function init_menu(cmd)
 		+ '<tr class="switch"><td><input type="submit" id="M2" value= "Scenes" class="hm_button"></td>'
 		+ '<tr class="switch"><td><input type="submit" id="M3" value= "Timers" class="hm_button"></td>'
 		+ '<tr class="switch"><td><input type="submit" id="M4" value= "Handsets" class="hm_button"></td>'
-		+ '<tr><td></td>'
+		;
+		if (weather.length > 0) {
+			but += '<tr class="switch"><td><input type="submit" id="M6" value= "Weather" class="hm_button"></td>'
+		}
+		but += '<tr><td></td>'
 		+ '<tr><td></td>'
 		+ '<tr class="switch"><td><input type="submit" id="M5" value= "Config" class="hm_button"></td>'
 		;
@@ -2003,6 +2093,10 @@ function init_menu(cmd)
 				
 				case "M5":
 					init_settings();
+				break;
+				
+				case "M6":
+					init_weather();
 				break;
 				
 				default:
@@ -4426,6 +4520,145 @@ function activate_setting(sid)
 	}
 }
 
+// --------------------------------- ACTIVATE WEATHER -------------------------------------
+
+function activate_weather(wid)
+{
+	// Cleanup work area
+	$( "#gui_messages" ).empty();
+	$( "#gui_content" ).empty();					// Empty our drawing area
+	html_msg = '<div id="gui_weather"></div>';
+	$( "#gui_content" ).append (html_msg);	
+	html_msg = '<table border="0">';
+	$( "#gui_weather" ).append( html_msg );
+	
+	var table = $( "#gui_weather" ).children();		// to add to the table tree in DOM
+
+	var offbut, onbut;
+	var wl = weather.length;
+	var buf = '<tbody>' ;
+	
+	buf += '<tr><td width="100%">';
+	for (var i=0; i< wl; i++) {
+        buf += '<canvas id="canvasRadial'+(i+1)+'" width="201" height="201"></canvas>';
+	}
+	buf += '</td></tr>';
+	buf += '<tr><td width="100%">';
+	for (var i=0; i< wl; i++) {
+		var canv = 'canvasRadial'+(wl+i+1)+'';
+        buf += '<canvas id="'+canv+'" width="201" height="201">No canvas in your browser...</canvas>';
+	}
+	buf += '</td></tr>';
+	buf += '</tbody></table>';
+	
+	$(table).append(buf);							// Display the table with canvas
+	//$( "#gui_weather" ).append( buf );
+	
+	// From the demo
+	// XXX When working OK, switch to min version
+	// We load the .js file for steel animation. This is done in jQuery so that once
+	// loaded all functions are available, but the functions are no integral/permanent part
+	// of the code
+	$.getScript("steel/steelseries-min.js", function(){
+	//$.getScript("steel/steelseries.js", function(){
+	
+		var sections = [steelseries.Section( 0, 25, 'rgba(0, 0, 220, 0.3)'),
+                    	steelseries.Section(25, 50, 'rgba(0, 220, 0, 0.3)'),
+                    	steelseries.Section(50, 75, 'rgba(220, 220, 0, 0.3)') ],
+
+            // Define one area
+            areas = [steelseries.Section(75, 100, 'rgba(220, 0, 0, 0.3)')],
+
+            // Define value gradient for bargraph
+            tempGrad = new steelseries.gradientWrapper(  -20,
+                                                        40,
+                                                        [ 0, 0.33, 0.66, 0.85, 1],
+                                                        [ new steelseries.rgbaColor(0, 0, 200, 1),
+                                                          new steelseries.rgbaColor(0, 200, 0, 1),
+                                                          new steelseries.rgbaColor(200, 200, 0, 1),
+                                                          new steelseries.rgbaColor(200, 0, 0, 1),
+                                                          new steelseries.rgbaColor(200, 0, 0, 1) ]);
+			
+			valGrad = new steelseries.gradientWrapper(  0,
+                                                        100,
+                                                        [ 0, 0.33, 0.66, 0.85, 1],
+                                                        [ new steelseries.rgbaColor(0, 0, 200, 1),
+                                                          new steelseries.rgbaColor(0, 200, 0, 1),
+                                                          new steelseries.rgbaColor(200, 200, 0, 1),
+                                                          new steelseries.rgbaColor(200, 0, 0, 1),
+                                                          new steelseries.rgbaColor(200, 0, 0, 1) ]);
+		
+		var radial={};
+		for (var j=0; j< wl; j++)
+		{
+			
+			// temperature
+			radial[j] = new steelseries.RadialBargraph('canvasRadial'+(j+1), {
+                            	gaugeType: steelseries.GaugeType.TYPE4,
+                            	size: 201,
+								minValue: -20,
+								maxValue: 40,
+                            	valueGradient: tempGrad,
+                            	useValueGradient: true,
+                            	titleString: weather[j]['location'],
+                            	unitString: 'Temp C',
+								threshold: 50,
+                            	lcdVisible: true
+                        });
+			// humidity
+			radial[j+wl] = new steelseries.RadialBargraph('canvasRadial'+(j+wl+1), {
+                            	gaugeType: steelseries.GaugeType.TYPE4,
+                            	size: 201,
+                            	valueGradient: valGrad,
+                            	useValueGradient: true,
+                            	titleString: weather[j]['location'],
+                            	unitString: 'Humidity %',
+                            	lcdVisible: true
+                        });
+			radial[j].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
+			radial[j].setValueAnimated(weather[j]['temperature']);
+			radial[j].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
+			
+			radial[j+wl].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
+			radial[j+wl].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
+			radial[j+wl].setValueAnimated(weather[j]['humidity']);
+		}
+		
+		// Once every 2 seconds we update the meters based on the current
+		// value of the weather array (which might change due to incoming messages
+		// over websockets.
+		var id;
+		id = setInterval(function(){
+			// Do work if we are in the weather screen
+			if (s_screen == "weather" )
+			{
+				for (var j=0; j< wl; j++) {
+					radial[j].setValueAnimated(weather[j]['temperature']); 
+					radial[j+wl].setValueAnimated(weather[j]['humidity']);
+				}
+			}
+			else
+			{
+				// Kill this timer temporarily
+				clearInterval(id);
+				message("Interval Cleared");
+			}
+		}, 2000);
+		
+	});
+	
+
+	
+	// Do specific LamPI work
+	//
+	switch (wid) {
+		case "0":
+		break;
+		default:
+			// myAlert("Weather button: "+wid);
+	}
+}
+
 // --------------------------------- BUTTONS ----------------------------------------------
 //
 //		Print a room button to DOM
@@ -4485,6 +4718,16 @@ function handset_button(id, val, hover)
 {
 			var but = ''
 			+ '<input type="submit" id="' + id + '" value= "'+ val + '" class="hh_button ' + hover + '">'
+			return (  but );	
+}
+//
+// Print a weather button
+//
+//
+function weather_button(id, val, hover) 
+{
+			var but = ''
+			+ '<input type="submit" id="' + id + '" value= "'+ val + '" class="hw_button ' + hover + '">'
 			return (  but );	
 }
 //
@@ -4934,7 +5177,8 @@ function load_database(dbase_cmd)
          	success: function( data )
 				{
 					// XXX Future improvement: Only get one room or scene at a time, not the whole array !!
-					//
+					// On the other hand, for TCP/IP sending a large array or just a smaller one
+					// does not make a lot of difference in time and processing
 					rooms = data.appmsg['rooms'];			// Array of rooms
 					devices = data.appmsg['devices'];		// Array of devices			
 					// XXX These 5 should be retrieved upon activation, but this finetuning not done yet!
@@ -4943,6 +5187,7 @@ function load_database(dbase_cmd)
 					handsets = data.appmsg['handsets'];
 					settings = data.appmsg['settings'];
 					brands = data.appmsg['brands'];
+					weather = data.appmsg['weather'];
 					
 					// For all rooms write a button to the document
 					$("#gui_header").append('<table border="0">');	// Write table def to DOM
@@ -5091,7 +5336,7 @@ function message_device(action, controller_cmd)
 			break;
 			// 2: close in progress
 			case 2:
-			
+				console.log("Websocket:: close in progress: "+w_sock.readyState);
 			break;
 			// 3: closed
 			case 3:

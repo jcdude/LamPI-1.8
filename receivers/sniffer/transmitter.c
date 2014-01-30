@@ -161,9 +161,6 @@ char * parse_cjson( cJSON * ptr, char * pattern )
 		{
 			return(child->valuestring);
 		}
-		//gtype = child->type ;
-		//gname = child->string ;
-		//gaddr = child->valuestring;
 		child = child->next;
 	}
 	return(NULL);
@@ -229,7 +226,7 @@ int read_socket_and_transmit(int sockfd)
 	char *juaddr;
 	char *jbrand;
 	char *jval;
-	char *ok;
+	char *action;
 //	char *gname;									// Name
 //	int gtype;
 	char buf[MAXDATASIZE];							// For sending and receiving socket messages
@@ -279,7 +276,7 @@ int read_socket_and_transmit(int sockfd)
 		  // Look at the filedescriptor, and see if this socket is selected
 		  if (FD_ISSET(sockfd, &fds)) 
 		  {
-			if (verbose==1) printf("daemon_mode:: Message ready waiting on socket\n");
+			if (debug==1) printf("daemon_mode:: Message ready waiting on socket\n");
 				
 			rc = read(sockfd, buf, MAXDATASIZE); 
 			if (rc == 0) {
@@ -290,7 +287,7 @@ int read_socket_and_transmit(int sockfd)
 				break;
 			}
 			buf[rc]=0;									// Terminate a string
-			printf("Buf read:: <%s>\n",buf);
+			printf("------------------------------------------------\nBuf read:: <%s>\n",buf);
 			
 			ptr1 = buf;	
 			cJSON *root;
@@ -310,31 +307,62 @@ int read_socket_and_transmit(int sockfd)
 					cJSON_Delete(root);
 					break;
 				}
-				ok = parse_cjson(root, "action");		// My add-on parsing function 
-				if  ((ok != NULL) && (strcmp(ok,"ack") == 0))
-								{ goto next; }		// Ignore OK messages for the receiver (oh oh)
 				
-				jbrand = parse_cjson(root, "brand");		// My ad-on parsing function 
-				if (jbrand == NULL) { printf("parse_cjson jbrand returned NULL \n"); goto next; }
+				// First parse the action field (which MUST be present in Json message
+				// The action field will be used to implement a "switch" below
 				
-				jgaddr = parse_cjson(root, "gaddr");
-				if (jgaddr == NULL) { printf("parse_cjson gaddr returned NULL \n"); goto next; }
-				
-				juaddr = parse_cjson(root, "uaddr");
-				if (juaddr == NULL) { printf("parse_cjson uaddr returned NULL \n"); goto next; }
-				
-				jval = parse_cjson(root, "val");
-				if (jval == NULL) {	printf("parse_cjson val returned NULL \n"); goto next; }
-				
-				printf("Json:: gaddr: %s, uaddr: %s, val: %s\n",jgaddr, juaddr, jval);
-		
-				// Now transmit the command to a device using function transmit
-				//
-				if (dtransmit(jbrand, jgaddr, juaddr, jval) == -1)
+				action = parse_cjson(root, "action");		// My add-on parsing function 
+				if (action == NULL)
 				{
-					printf("transmit: returned error \n");
-					continue;
+					printf("parse_cjson action returned NULL \n"); 
+					goto next;
 				}
+				
+				// If we receive and ACK message as a response from the daemon that our
+				// message was received correctly => Ignore OK messages for the receiver (oh oh)
+				if  (strcmp(action,"ack") == 0) { 
+					goto next; 
+				}		
+				
+				// We receive a message for the transmitter
+				if  ((strcmp(action,"gui") == 0) || (strcmp(action,"upd") == 0)) 
+				{ 
+					jbrand = parse_cjson(root, "brand");		// My ad-on parsing function 
+					if (jbrand == NULL) { printf("parse_cjson jbrand returned NULL \n"); goto next; }
+				
+					jgaddr = parse_cjson(root, "gaddr");
+					if (jgaddr == NULL) { printf("parse_cjson gaddr returned NULL \n"); goto next; }
+				
+					juaddr = parse_cjson(root, "uaddr");
+					if (juaddr == NULL) { printf("parse_cjson uaddr returned NULL \n"); goto next; }
+				
+					jval = parse_cjson(root, "val");
+					if (jval == NULL) {	printf("parse_cjson val returned NULL \n"); goto next; }
+				
+					printf("Json:: gaddr: %s, uaddr: %s, val: %s\n",jgaddr, juaddr, jval);
+		
+					// Now transmit the command to a device using function transmit
+					//
+					if (dtransmit(jbrand, jgaddr, juaddr, jval) == -1)
+					{
+						printf("transmit: returned error \n");
+						cJSON_Delete(root);
+						continue;
+					}
+				}
+				
+				// If we receive a weather notification (a broadcast), ignore
+				if  (strcmp(action,"weather") == 0) { 
+					printf("parse_cjson:: weather message received. SKIPPING\n");
+					goto next; 
+				}
+				
+				// If we receive a energy notification (a broadcast), ignore
+				if  (strcmp(action,"energy") == 0) { 
+					printf("parse_cjson:: energy message received. SKIPPING\n");
+					goto next; 
+				}
+				
 next:
 				cJSON_Delete(root);
 				
