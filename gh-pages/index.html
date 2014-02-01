@@ -25,6 +25,7 @@
 <p>The goal of my project was to provide an easy interface to the family to control the lights in our house. We had klikaanklikuit.nl switches and we have an iPad (and some Android phones and Laptops) and want to control our light switches with an easy-to-use GUI interface. This meant that I needed at least 2 components: A component that would control transmitter and receiver and handle low-level device commands, and a GUI in JavaScript/jQuery that would handle the human interaction. In order to store configuration information and for timing commands and unattended use, we would also need a daemon process serving in the background as well as a database (written in MySQL) to store configuration information.</p>
 <p>Although I would expect that you like to use te complete package, it is quite good possible to only use the RaspberryPI transmitter and receiver shell executables (see below)</p>
 <p>&lt;More information is available HERE&gt;</p>
+<p>&nbsp;</p>
 <h1>Main LamPI Functions</h1>
 <p>LamPI contains 5 main screens: Rooms, Scenes, Timers, Handsets and Config. For every screen I have assembled a few pages that contain instructions on common tasks you will perform. </p>
 <p>The documentation for the LamPI functions can be found on this site on the following pages.</p>
@@ -34,7 +35,7 @@
   <li><a href="scenes.html">The Scenes Screen</a></li>
   <li><a href="timers.html">The Timers Screen</a></li>
   <li><a href="handsets.html">The Handsets Screen</a></li>
-  <li><a href="screenshots/weather_screen_1.JPG">The Weather screen (optional)</a></li>
+  <li><a href="weather.html">The Weather screen (optional)</a></li>
   <li><a href="config.html">The Config Screen</a></li>
   <li>Transceiver interface; If you only want to use the <a href="transceiver.html">LamPI-receiver  command-line</a> to send/receive 433MHz messages </li>
   <li><a href="hardware.html">Background information  433MHz hardware for RaspberryPI</a></li>
@@ -60,7 +61,7 @@
 </ul>
 <h4>Temperature Sensors</h4>
 <ul>
-  <li>WT-440H, made by UPM/Esic</li>
+  <li>WT-440H, made by UPM/Esic (The weather menu button will only show if a weather sensor is defined in the database.cfg file)</li>
 </ul>
 <h1>What Platform(s) does LamPI run on?</h1>
 <ul>
