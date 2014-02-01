@@ -1871,20 +1871,22 @@ while (true):
 	// Process timers scenes in MySQL and see whether they need activation... 
 	// Other processing based on content of timers in MySQL?
 	// This part only needs to run once every 60 seconds or so, since the timer resolution in in MINUTES!
+	// What influences the timing are sensors of weather stations, but that is compensated for ..
 	
 	if ($debug> 2) $log->lwrite("main:: Entering the SQL Timers section" );
-	$timers = load_timers();	
+	$timers = load_timers();				// This is a call to MSQL	
 	$tim = time();
 	// mktime(hour,minute,second,month,day,year,is_dst) NOTE is_dst daylight saving time
 	// For EVERY object in the timer array, look whether we should take action
 	//
 	for ($i=0; $i < count($timers); $i++)
 	{
-		// $log->lwrite("index: $i, id: ".$timers[$i]['id'].", name: ".$timers[$i]['name']);
+		if (debug>2) $log->lwrite("index: $i, id: ".$timers[$i]['id'].", name: ".$timers[$i]['name']);
 		//
+		list ( $start_hour, $start_minute) = sscanf($timers[$i]['tstart'], "%2d:%2d" );
 		list ( $start_day, $start_month, $start_year ) = sscanf($timers[$i]['startd'], "%2d/%2d/%2d" );
 		list ( $end_day, $end_month, $end_year ) = sscanf($timers[$i]['endd'], "%2d/%2d/%2d" );
-		list ( $start_hour, $start_minute) = sscanf($timers[$i]['tstart'], "%2d:%2d" );
+		
 		$start_second = "00";
 		
 		// The timing codes received for dusk/dawn are same as defined for the ICS-1000
@@ -1925,7 +1927,6 @@ while (true):
 		if (substr($timers[$i]['months'],@date('n')-1,1) == "x" ) {
 			if ($debug > 1) $log->lwrite ("This month is blocked from timer execution");
 		}
-		
 		else
 		if ( substr($timers[$i]['days'],@date('N')-1,1) == "x" ) {
 			if ($debug > 1) $log->lwrite ("main:: Today is blocked from timer execution");

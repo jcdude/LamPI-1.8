@@ -803,9 +803,10 @@ function start_LAMP(){
 						// And add the line to the #gui_devices section
 						// Go to the new timer
 						// XXX Better would be just to add one more button and activate it in #gui_header !!
-						init_timers("init");
+						// init_timers("init");
+						s_timer_id = ind;
+						init_timers ("init");
 						return(1);	
-						
 					// Cancel	
   					}, function () {
 							activate_timer (s_timer_id);
@@ -865,7 +866,7 @@ function start_LAMP(){
 							if (debug>1)
 								alert("Removed from dbase:: id: " + removed[0]['id'] + " , name: " + removed[0]['name']);
 						}
-						
+						s_timer_id=timers[0]['id'];
 						// 
 						init_timers("init");					// As we do not know which timer will be first now
 						return(1);	//return(1);
@@ -3810,16 +3811,7 @@ function activate_timer(tim)
 				var timer = get_timer(s_timer_id);
 				// May have to add: Cancel All timers and Delete All timers
 				switch (but_id.substr(-2))
-				{
-					// START button
-					//case "Fq":
-					//	// Send to the device message_device
-					//	var timer_cmd = '!FqP"' + timer['name'] + '"';
-						// Send to device. In case of a Raspberry, we'll use the backend_rasp
-						// file to lookup the command string from the database
-					//	message_device("timer", timer_cmd );
-					//break;
-					
+				{					
 					//
 					// STORE button !!! 
 					// THIS ONE IS IMPORTANT. We'll LET THE USER PLAY UNTIL HE PRESSES THIS BUTTON!!!
@@ -4635,6 +4627,18 @@ function activate_weather(wid)
 				for (var j=0; j< wl; j++) {
 					radial[j].setValueAnimated(weather[j]['temperature']); 
 					radial[j+wl].setValueAnimated(weather[j]['humidity']);
+				}
+				// Make a new connection and start registering the various actions,
+				// State 0: Not ready
+				// State 1: Ready
+				// State 2: Close in progress
+				// State 3: Closed
+				var state = w_sock.readyState;
+				if (state != 1) {
+					
+					console.log("Websocket:: error. State is: "+state);
+					message("Websocket:: error. State is: "+state);
+					w_sock = new WebSocket(w_uri);
 				}
 			}
 			else

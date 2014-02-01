@@ -1025,12 +1025,10 @@ int action(int p_length)
 							
 				//sprintf(snd_buf, "%d,!A%dD%dF%d", socktcnt%1000, address, unit, onoff);
 				
-				if (dflg) 
-				{
+				if (dflg) {
 					check_n_write_socket(binary, chk_buf, binary_count);
 				}
-				else
-				{
+				else {
 					if (verbose) printf("Send Buffer: %s\n",snd_buf);
 				}
 				
@@ -1800,11 +1798,17 @@ int main (int argc, char **argv)
 						if (verbose==1) printf("daemon_mode:: reopened the socket\n");
 						// New socket created, hopefully we're fine now
 					}
+					
+					// Do some basic checks to avoid hanging of the daemon
+					// XXX Needs more checks
+					if (stop_ints == 1) {
+						fprintf(stderr,"ERROR sniffer.c:: in daemon mode, stop_ints == 1");
+					}
 				}
 				else {
 					usleep(SLEEP);
 				}
-			}
+			}// for
 			last_r_index = r_index;
 			
 			

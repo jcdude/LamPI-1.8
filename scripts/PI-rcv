@@ -27,7 +27,7 @@ then
 	cd $EXEDIR
 	echo "---------------------------------------------------" >> $LOGFILE 2>&1
 	echo "`date`:: Starting $SNIFFER" >> $LOGFILE 2>&1
-	nohup ./$SNIFFER -d >> $LOGFILE 2>&1 &
+	nohup ./$SNIFFER -d -v >> $LOGFILE 2>&1 &
 else
 	echo "$PID"
 fi
