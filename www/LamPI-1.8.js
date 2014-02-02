@@ -101,7 +101,7 @@ var s_scene_id =1;
 var s_timer_id = 1;
 var s_handset_id = 1;
 var s_weather_id = 1;
-var s_setting_id = "1";
+var s_setting_id = 1;
 var s_recorder = '';									// will make the recording of all user actions in a scene. 
 var s_recording = 0;									// Set to 1 to record lamp commands
 
@@ -126,8 +126,7 @@ var max_weather = 4;									// Maximum number of weather stations receivers
 // rooms contains an array of key value pairs. Each key is a room id number, 
 // and each value is a room name string.
 // example: rooms[0]['id'] == 1 and rooms[0][''] == "living"
-
-
+//
 // DEVICES 
 // The devices var contains the devices read during the init_dbase call
 //
@@ -175,7 +174,6 @@ var max_weather = 4;									// Maximum number of weather stations receivers
 // 
 // The ICS 1000 stores the scene strings based on a scene name (!!!)
 // In case of a store scene command, scnes with the same name are overwritten
-
 //
 // TIMERS
 // Timers are a special kind of scenes. In fact, it is a scene with a timer attached to it. 
@@ -4629,7 +4627,7 @@ function activate_weather(wid)
 					radial[j+wl].setValueAnimated(weather[j]['humidity']);
 				}
 				// Make a new connection and start registering the various actions,
-				// State 0: Not ready
+				// State 0: Not ready (yet), connection to e established
 				// State 1: Ready
 				// State 2: Close in progress
 				// State 3: Closed
@@ -4647,7 +4645,7 @@ function activate_weather(wid)
 				clearInterval(id);
 				message("Interval Cleared");
 			}
-		}, 2000);
+		}, 2000);		// 2 seconds (in millisecs)
 		
 	});
 	

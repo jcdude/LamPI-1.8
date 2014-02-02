@@ -405,6 +405,7 @@ function read_scene($name)
 		$res[] = $row ;
 	}
 
+	mysqli_free_result($query);
 	mysqli_close($mysqli);
 	
 	// NOTE: Assuming every sequence/scene name is unique, we return ONLY the first scene

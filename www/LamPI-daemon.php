@@ -1742,7 +1742,7 @@ while (true):
 			switch($items[$i]['action'])
 			{
 				case "weather":
-					if (debug>=1) $log->lwrite("main:: RECOGNIZED WEATHER MESSAGE");
+					if ($debug>=1) $log->lwrite("main:: RECOGNIZED WEATHER MESSAGE");
 					$bcst = array (	
 						// First part of the record specifies this message type and characteristics
 						'tcnt' => "0",
@@ -1766,7 +1766,7 @@ while (true):
 				break;
 				
 				case "gui":
-					if (debug>=1) $log->lwrite("main:: RECOGNIZED GUI MESSAGE");
+					if ($debug>=1) $log->lwrite("main:: RECOGNIZED GUI MESSAGE");
 					$cmd = "";
 					if (substr($items[$i]['cmd'],-2,2) == "Fa") {
 						list( $room, $value ) = sscanf ($items[$i]['cmd'], "!R%dF%s" );
@@ -1775,6 +1775,7 @@ while (true):
 								// add to the items array 
 								$item = array(
     							'scene' => $items[$i]['scene'],
+								'action' => $items[$i]['action'],
     							'cmd'   => "!R".$room . $devices[$j]['id']."F0",
 								'secs'  => $items[$i]['secs']
    				 				);
@@ -1881,7 +1882,7 @@ while (true):
 	//
 	for ($i=0; $i < count($timers); $i++)
 	{
-		if (debug>2) $log->lwrite("index: $i, id: ".$timers[$i]['id'].", name: ".$timers[$i]['name']);
+		if ($debug>2) $log->lwrite("index: $i, id: ".$timers[$i]['id'].", name: ".$timers[$i]['name']);
 		//
 		list ( $start_hour, $start_minute) = sscanf($timers[$i]['tstart'], "%2d:%2d" );
 		list ( $start_day, $start_month, $start_year ) = sscanf($timers[$i]['startd'], "%2d/%2d/%2d" );

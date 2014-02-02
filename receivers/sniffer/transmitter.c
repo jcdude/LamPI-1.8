@@ -254,7 +254,7 @@ int read_socket_and_transmit(int sockfd)
 						socktcnt%1000);
 		
 		if (write(sockfd, buf, strlen(buf)) == -1) {
-			perror("Error writing to socket\n");
+			perror("transmitter.c:: Error writing to socket\n");
 			close(sockfd);
 			return(-2);								// code not connected
 		}
@@ -268,7 +268,7 @@ int read_socket_and_transmit(int sockfd)
 			
 	// Check for incoming socket messages. As longs as there is a message, read it, process it
 	// If there are no fds ready, function returns 0, and we restart the loop
-	// XXX NOte: Timeout is so that we will not wait too long, as this will cluther the
+	// XXX Note: Timeout is so that we will not wait too long, as this will cluther the
 	// interrupt process trying to fill the buffer.
 		
 	while ((rc = select(sockfd+1, &fds, NULL, NULL, &timeout)) > 0)
@@ -286,6 +286,11 @@ int read_socket_and_transmit(int sockfd)
 				close(sockfd);
 				break;
 			}
+			else if (rc == -1) {
+				perror("transmitter.c:: Error reading socket");
+				break;
+			}
+			
 			buf[rc]=0;									// Terminate a string
 			printf("------------------------------------------------\nBuf read:: <%s>\n",buf);
 			
