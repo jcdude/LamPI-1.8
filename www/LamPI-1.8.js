@@ -4511,7 +4511,10 @@ function activate_setting(sid)
 }
 
 // --------------------------------- ACTIVATE WEATHER -------------------------------------
-
+// At the moment I do have 3 temperature/humidity sensors.
+// It os quite good possible to config the sceen so that for 2 or 4 sensors
+// we will have a good layout on the screen.
+//
 function activate_weather(wid)
 {
 	// Cleanup work area
@@ -4527,18 +4530,23 @@ function activate_weather(wid)
 	var offbut, onbut;
 	var wl = weather.length;
 	var buf = '<tbody>' ;
-	
-	buf += '<tr><td width="100%">';
+	var wi = 100/wl;
+	buf += '<tr>';
 	for (var i=0; i< wl; i++) {
+		buf += '<td width="'+wi+'%">';
         buf += '<canvas id="canvasRadial'+(i+1)+'" width="201" height="201"></canvas>';
+		buf += '</td>';
 	}
-	buf += '</td></tr>';
-	buf += '<tr><td width="100%">';
+	buf += '</tr>';
+	
+	buf += '<tr>';
 	for (var i=0; i< wl; i++) {
 		var canv = 'canvasRadial'+(wl+i+1)+'';
+		buf += '<td width="'+wi+'%">';
         buf += '<canvas id="'+canv+'" width="201" height="201">No canvas in your browser...</canvas>';
+		buf += '</td>';
 	}
-	buf += '</td></tr>';
+	buf += '</tr>';
 	buf += '</tbody></table>';
 	
 	$(table).append(buf);							// Display the table with canvas
@@ -4551,7 +4559,8 @@ function activate_weather(wid)
 	// of the code
 	$.getScript("steel/steelseries-min.js", function(){
 	//$.getScript("steel/steelseries.js", function(){
-	
+		
+		// sections are used for:
 		var sections = [steelseries.Section( 0, 25, 'rgba(0, 0, 220, 0.3)'),
                     	steelseries.Section(25, 50, 'rgba(0, 220, 0, 0.3)'),
                     	steelseries.Section(50, 75, 'rgba(220, 220, 0, 0.3)') ],
@@ -4559,10 +4568,10 @@ function activate_weather(wid)
             // Define one area
             areas = [steelseries.Section(75, 100, 'rgba(220, 0, 0, 0.3)')],
 
-            // Define value gradient for bargraph
+            // Define value gradient for bargraph tempterature
             tempGrad = new steelseries.gradientWrapper(  -20,
                                                         40,
-                                                        [ 0, 0.33, 0.66, 0.85, 1],
+                                                        [ 0, 0.20, 0.40, 0.85, 1],
                                                         [ new steelseries.rgbaColor(0, 0, 200, 1),
                                                           new steelseries.rgbaColor(0, 200, 0, 1),
                                                           new steelseries.rgbaColor(200, 200, 0, 1),
@@ -4586,16 +4595,17 @@ function activate_weather(wid)
 			radial[j] = new steelseries.RadialBargraph('canvasRadial'+(j+1), {
                             	gaugeType: steelseries.GaugeType.TYPE4,
                             	size: 201,
-								minValue: -20,
+								minValue: -20,							// Set the min value on the scale
 								maxValue: 40,
                             	valueGradient: tempGrad,
                             	useValueGradient: true,
                             	titleString: weather[j]['location'],
                             	unitString: 'Temp C',
-								threshold: 50,
+								threshold: 30,
                             	lcdVisible: true
                         });
-			// humidity
+			
+			// humidity radial gauges
 			radial[j+wl] = new steelseries.RadialBargraph('canvasRadial'+(j+wl+1), {
                             	gaugeType: steelseries.GaugeType.TYPE4,
                             	size: 201,
