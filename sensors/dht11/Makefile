@@ -1,6 +1,6 @@
 #
 # Makefile:
-#	LamPI - WiringPI Compatable receiver library for the Raspberry Pi
+#	LamPI - WiringPI Compatable sensor library for the Raspberry Pi
 #	
 #
 #	Copyright (c) 2013 Maarten Westenberg
@@ -32,15 +32,17 @@ LDFLAGS	= -L/usr/local/lib
 LDLIBS    = -lwiringPi -lwiringPiDev -lpthread -lm
 INSTALL = /home/pi/exe
 
-SRC	= sniffer.c cJSON.c transmitter.c
+SRC	= sensor.c \
+	dht11.c
     
 # Should not alter anything below this line
 ###############################################################################
 
 OBJ=$(SRC:.c=.o)
+
 BINS=$(SRC:.c=)
 
-all:	sniffer
+all:	$(BINS)
 
 readme:
 	@cat README.TXT
@@ -49,19 +51,22 @@ readme:
 
 really-all:	$(BINS)
 
-sniffer:	$(OBJ)
-	@echo [link]
-	@$(CC) -o $@ $(OBJ) $(LDFLAGS) $(LDLIBS)
+sensor:	sensor.o
+	@echo [link sensor]
+	@$(CC) -o $@ sensor.o $(LDFLAGS) $(LDLIBS)
 
+dht11:	dht11.o
+	@echo [link dht11]
+	@$(CC) -o $@ dht11.o $(LDFLAGS) $(LDLIBS)
+    
 .c.o:
 	@echo [CC] $<
 	@$(CC) -c $(CFLAGS) $< -o $@
 
 install:
-	-pkill LamPI-receiver
-	@cp sniffer $(INSTALL)/LamPI-receiver
-	chown root $(INSTALL)/LamPI-receiver
-	chmod u+s $(INSTALL)/LamPI-receiver
+	@cp sensor $(INSTALL)/LamPI-sensor
+	chown root $(INSTALL)/LamPI-sensor
+	chmod u+s $(INSTALL)/LamPI-sensor
 
 clean:
 	@echo "[Clean]"

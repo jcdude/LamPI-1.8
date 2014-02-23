@@ -496,7 +496,7 @@ function fill_weatherdb($weatherdb)
 	global $dbpass;
 	global $dbhost;
 	
-	// We need a table rooms, devices, scenes and timers to start
+	// We need a table to start
 	
 	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
 	if ($mysqli->connect_errno) {

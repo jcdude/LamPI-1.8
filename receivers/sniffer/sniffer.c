@@ -73,8 +73,6 @@ static unsigned long edgeTimeStamp[2] = {0, };  // Timestamp of edges
 static volatile int pulse_time = P_AUTO;		// This is the initial lenght of the pulse
 
 static int pulse_array [MAXDATASIZE];			// circular Array to store the pulse timing
-//static int p_min = 20;							// Min amount of pulses in message 8 == 2 bit (for action/impuls is 52)
-
 
 // Binary code messages of receiver
 static int binary_count = 0;
@@ -563,6 +561,7 @@ int kopou(int p_length)
 {
 	int i;
 	int j;
+	int onoff = 0;
 	
 	// Check for Kopou. Actually, we should put this into modules/functions to make code more readible....
 	// 2 periods start pulse: 140 + 600 uSec
@@ -652,7 +651,12 @@ int kopou(int p_length)
 				// Do communication to the daemon of print output
 				//if (socktcnt++ >999) socktcnt = 0;		// Transaction counter reset
 				socktcnt++;
-				sprintf(snd_buf, "%d,!A%dD%dF1", socktcnt%1000, address, unit);
+				// sprintf(snd_buf, "%d,!A%dD%dF1", socktcnt%1000, address, unit);
+				onoff = 1;
+				sprintf(snd_buf, 
+					 "{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dF%d\"}", 
+							socktcnt%1000,address,unit,onoff);
+							
 				if (dflg) 
 				{
 					check_n_write_socket(binary, chk_buf, binary_count);
@@ -705,6 +709,7 @@ int livolo(int p_length)
 {
 	int i;
 	int j;
+	int onoff = 0;
 	
 	if (p_length > 50)
 	{
@@ -785,7 +790,11 @@ int livolo(int p_length)
 				// Do communication to the daemon of print output
 				if (socktcnt++ >999) socktcnt = 0;		// Transaction counter reset
 				socktcnt++;
-				sprintf(snd_buf, "%d,!A%dD%dF1", socktcnt, address, unit);
+				//sprintf(snd_buf, "%d,!A%dD%dF1", socktcnt, address, unit);
+				onoff = 1;
+				sprintf(snd_buf, 
+					 "{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dF%d\"}", 
+							socktcnt%1000,address,unit,onoff);
 				
 				if (dflg) 
 				{
@@ -1283,25 +1292,26 @@ int kaku(int p_length)
 				socktcnt++;
 				// If group, send other message than if it is regular button
 				if (group == 1) {
-					//sprintf(snd_buf, 
-					// "{ \"tcnt\":%d, \"action\":\"remote\", \"type\":\"raw\", \"message\":\"!A%dD%dG%d\"  }", 
-					//		socktcnt%1000,address,unit,onoff);
+				
+					sprintf(snd_buf, 
+					 "{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dG%d\"}", 
+							socktcnt%1000,address,unit,group);
 					printf("Address: %d, Unit: %d, Group: %d\n",address,unit,group);
-					sprintf(snd_buf, "%d,!A%dD%dG%d", socktcnt%1000 ,address, unit, group);	
+					
 				}
 				else {
-					// sprintf(snd_buf, 
-					// "{ \"tcnt\":%d, \"action\":\"remote\", \"type\":\"raw\", \"message\":\"!A%dD%dF%d\"  }", 
-					//		socktcnt%1000 ,address,unit,onoff);
 					
 					// Remotes do not do dimlevel, but if necessary we can ...
 					if (onoff == 2) {
 						printf("Address: %d, Unit: %d, Dim: %d\n",address,unit,dimlevel);
-						sprintf(snd_buf, "%d,!A%dD%dFdP%d", socktcnt%1000, address, unit, dimlevel);
+						sprintf(snd_buf, 
+							"{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dFdP%d\"}", 
+							socktcnt%1000,address,unit,dimlevel);
 					}
 					else {
-						printf("Address: %d, Unit: %d, Value: %d\n",address,unit,onoff);
-						sprintf(snd_buf, "%d,!A%dD%dF%d", socktcnt%1000, address, unit, onoff);
+						sprintf(snd_buf, 
+							"{\"tcnt\":\"%d\",\"action\":\"handset\",\"type\":\"raw\",\"message\":\"!A%dD%dF%d\"}", 
+							socktcnt%1000,address,unit,onoff);
 					}
 				}
 				
@@ -1513,21 +1523,10 @@ int main (int argc, char **argv)
 	// Valid options are:
 	// -h <hostname> ; hostname or IP address of the daemon
 	// -p <port> ; Portnumber for daemon socket
-	// -a ; Catch all, find out the protocol yourself
 	// -v ; Verbose, Give detailed messages
-	// -i ; Impuls switches such as used for Action remotes
-	// -k ; Show recognized Kaku messages of length 32 and 36 binary bits ONLY
 	//
     while ((c = getopt(argc, argv, ":123ac:dh:l:p:stvx")) != -1) {
         switch(c) {
-		case '1':						// Obsolete! For compatibility with previous version
-		break;
-		case '2':
-		break;
-		case '3':
-		break;
-		case 'a':						// Obsolete! For compatibility with previous receiver version
-		break;
 		case 'c':
 			cflg = 1;					// Checks
 			checks = atoi(optarg);
@@ -1584,8 +1583,6 @@ int main (int argc, char **argv)
 		fprintf(stderr, "-l value\t; Low Pass, number of uSec at minimum that is needed to count as a edge/bit change\n");
 
 		fprintf(stderr, "\n\nObsolete settings, not doing any action:\n");
-		fprintf(stderr, "-1\n\nObsolete Check setting.\n");
-		fprintf(stderr, "-a\n\nObsolete set all\n");
         exit (2);
     }
 	
@@ -1593,7 +1590,7 @@ int main (int argc, char **argv)
 	// Now start with setup wiringPI
 	//
 	
-	wiringPiSetup ();
+	wiringPiSetup();
 	wiringPiISR (r_pin, INT_EDGE_BOTH, &lampi_interrupt) ;
 
 	//	------------------ PRINTING Parameters ------------------------------
@@ -1809,6 +1806,7 @@ int main (int argc, char **argv)
 				}
 				else {
 					usleep(SLEEP);
+					// XXX must be delayMicroseoconds(SLEEP) 
 				}
 			}// for
 			last_r_index = r_index;

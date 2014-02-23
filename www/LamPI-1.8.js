@@ -101,7 +101,7 @@ var s_scene_id =1;
 var s_timer_id = 1;
 var s_handset_id = 1;
 var s_weather_id = 1;
-var s_setting_id = 1;
+var s_setting_id = "0";
 var s_recorder = '';									// will make the recording of all user actions in a scene. 
 var s_recording = 0;									// Set to 1 to record lamp commands
 
@@ -4084,7 +4084,7 @@ function activate_setting(sid)
 	$( "#gui_content" ).empty();
 
 	var offbut, onbut;	
-	switch (sid)
+	switch (sid+"")
 	{
 		// DEBUG level
 		// Set the debug level and store in the settings variable
@@ -4505,7 +4505,7 @@ function activate_setting(sid)
 		break; //5
 		
 		default:
-			myAlert("Config encountered internal error: unknown button");
+			myAlert("Config encountered internal error: unknown button "+sid);
 		
 	}
 }
