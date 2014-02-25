@@ -19,7 +19,7 @@
 <p>What you see below is the first version  for LamPI 1.8 with weather support. It does support weather sensors of UPM that transmit temperature and humidity values back to the LamPI-deamon.php process which are then broadcasted to all connected clients. And as you see, the client will display the temperature (top row) for ouside, the extension of our home and the living room. On the second row it will display the humidity for these three rooms.</p>
 <p>The definitions of sensors are stored in a configuration file.</p>
 <p><img src="screenshots/weather_screen_1.JPG" width="966" height="637"></p>
-<p>Apart from the latest sensor info, or even near-real-time information received, I like to add support for historical charts etc. At the moment, all sensor readings are stored in a log file, and also in the MSQL database. </p>
+<p>Apart from the latest sensor info, or even near-real-time information received, I like to add support for historical charts etc. At the moment, all sensor readings are stored in a log file, and also in the MySQL database. </p>
 <p>In case I missed something, please send me an email or make a note on this page. For the moment I'm the only author of LamPI so it can take a few days before I answer..</p>
 <h1>LamPI Introduction</h1>
 <p>The goal of my project was to provide an easy interface to the family to control the lights in our house. We had klikaanklikuit.nl switches and we have an iPad (and some Android phones and Laptops) and want to control our light switches with an easy-to-use GUI interface. This meant that I needed at least 2 components: A component that would control transmitter and receiver and handle low-level device commands, and a GUI in JavaScript/jQuery that would handle the human interaction. In order to store configuration information and for timing commands and unattended use, we would also need a daemon process serving in the background as well as a database (written in MySQL) to store configuration information.</p>
@@ -36,9 +36,14 @@
   <li><a href="timers.html">The Timers Screen</a></li>
   <li><a href="handsets.html">The Handsets Screen</a></li>
   <li><a href="weather.html">The Weather screen (optional)</a></li>
-  <li><a href="config.html">The Config Screen</a></li>
+  <li><a href="config.html">The Config Screen</a><br>
+    <br>
+  </li>
   <li>Transceiver interface; If you only want to use the <a href="transceiver.html">LamPI-receiver  command-line</a> to send/receive 433MHz messages </li>
   <li><a href="hardware.html">Background information  433MHz hardware for RaspberryPI</a></li>
+  <li><a href="sensors.html">Background information on Wired Sensors for PI (temperature, humidity etc).</a><br>
+    <br>
+  </li>
   <li>Background information on the <a href="architecture.html">Architecture</a></li>
 </ul>
 <h1>What Switches, Dimmers and other devices are supported?</h1>
@@ -66,6 +71,7 @@
 <h3>Wired Sensors</h3>
 <ul>
   <li>DHT11 Temperature/Humidity Sensor</li>
+  <li>DS18B20 Temperature Sensor (work in progress)</li>
 </ul>
 <p>&nbsp;</p>
 <h1>What Platform(s) does LamPI run on?</h1>

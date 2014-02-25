@@ -15,7 +15,8 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   THE SOFTWARE.
 */
-#include <wiringPi.h>  
+#include <wiringPi.h>
+#include <maxdetect.h>
 #include <stdio.h>  
 #include <stdlib.h> 
 #include <string.h>
@@ -34,7 +35,7 @@
 #include "sensor.h"
 
 #define MAX_TIME 90  
-#define DHT11PIN 7 					// == GPIO pin 4
+#define DHT11PIN 0 					// == GPIO pin 17
 
 
 
@@ -68,7 +69,7 @@
 //
 // --------------------------------------------------------------------
 
-int dht11_val[5]={0,0,0,0,0};
+unsigned char dht11_val[5]={0,0,0,0,0};
 static volatile int pulse_array [MAXDATASIZE];	// Array to store the pulse timing
 static volatile unsigned long edgeTimeStamp[2] = {0, };  // Timestamp of edges
 static volatile unsigned long start_time = 0;
@@ -253,222 +254,292 @@ void sensor_interrupt (void)
  */ 
 int dht11_read_int(int r)  
 {  
-	uint8_t j=0,i;
+	uint8_t j,i;
 	uint8_t linex;
 	int time_interval = 0;
+	int success = 0;
 	
-	stop_ints = 1;									// Disable interrupts for the moment
-	
-
-	pullUpDnControl (DHT11PIN, PUD_UP);				// Start with a HIGH value
-	digitalWrite(DHT11PIN,HIGH);
-	delay(10);										// Wait a little, 10 millisec
-	
-	for(i=0;i<5;i++)  
-		dht11_val[i]=0;  							// Initialize result to 0
-
-	// Send the request pulse
-	//
-	pinMode(DHT11PIN,OUTPUT);  
-	digitalWrite(DHT11PIN,LOW);  
-	delay(24);										// Wait 18 milli seconds
-	
-	digitalWrite(DHT11PIN,HIGH);  
-	delayMicroseconds(18); 							// Pull up 20-40 uSec
-  
-	// Switch to input mode, enable interrupts 
-	// Set pin mode to input
-	
-	pinMode(DHT11PIN,INPUT);
-	piHiPri (20);									// Give this program higher interrupt than std
-	stop_ints = 0;
-	
-	//pullUpDnControl (DHT11PIN, PUD_UP);			// Set data to a HIGH value
-	
-	// Receive bits, wait for interrupts to finish
-	//
-
-	start_time = micros();
-	p_index = 0;									// Initialize index
-	edgeTimeStamp[1] = start_time;
-    while (1) 
+	// We want at least ONE successful read of the sensor values.
+	while (! success) 
 	{
-		delayMicroseconds(5);
-		time_interval = micros() - start_time;
-		if ( time_interval > 80000 )
-		{
-			printf("\n\nERROR: Timeout, p_index: %d, interval: %d uSec\n", p_index, time_interval);
-			break;
-		}
-		if ( p_index > 41 )
-		{
-			printf("\n\nERROR: p_index overflow, p_index: %d, interval: %d uSec\n", p_index, time_interval);
-			break;
-		}
-	}
-	
-	start_time = 0;										// Reset timer
-	piHiPri (0);
-	
-	linex=0;
-	printf("Printing values, %d found:\n", p_index);
-	for (i=0; i< p_index; i++) 
-	{		
-		// useless transistions are ignored
+		j=0;
+		stop_ints = 1;								// Disable interrupts for the moment
+		time_interval = 0;
+		delay(500);									// XXX Necessary?
 		
-		if (i>=1)
-		{  
-			dht11_val[j/8]<<=1;  					// Shift one bit to left
-			if (pulse_array[i] > 90) 				// XXX WAS 16
-			{ 
-				dht11_val[j/8]|=1;					// Make lsb 1 (else it remains 0)
-			}
-			j++;  
-		} 
-		if (verbose)
-		{
-			printf("%3d|", pulse_array[i]);
-			if (linex <= 0) {
-				printf("\n");
-				linex=8;
-			}
-			linex--;
-		}
-	}
-	if (verbose) printf("\n");
+		pullUpDnControl (DHT11PIN, PUD_UP);			// Start with a HIGH value
+		digitalWrite(DHT11PIN,HIGH);
+		delay(10);									// Wait a little, 10 millisec
 	
-	printf("values: ");
-	for (i=0; i<5; i++) {
-		printf("%3d . ",dht11_val[i]);
-	}
-	printf("\n");
+		for(i=0;i<5;i++)  dht11_val[i]=0;  			// Initialize result to 0
+
+		// Send the request pulse
+		//
+		pinMode(DHT11PIN,OUTPUT);  
+		digitalWrite(DHT11PIN,LOW);  
+		delay(24);									// Wait 18 milli seconds
+	
+		digitalWrite(DHT11PIN,HIGH);  
+		delayMicroseconds(18); 						// Pull up 20-40 uSec
   
-	// verify checksum and print the verified data  
+		// Switch to input mode, enable interrupts 
+		// Set pin mode to input
 	
-	if((j>=40)&&(dht11_val[4]==((dht11_val[0]+dht11_val[1]+dht11_val[2]+dht11_val[3])& 0xFF)))  
-	{  
-		printf("%d, humidity: %d.%d; temperature: %d.%d; OK\n",
-				r, dht11_val[0], dht11_val[1], dht11_val[2], dht11_val[3]);
-	}  
-	else 
-	{  
-		printf("%d, humidity: %d.%d; temperature: %d.%d; Checksum failed\n",
-		 		r, dht11_val[0], dht11_val[1], dht11_val[2], dht11_val[3]);
-		return(EXIT_FAILURE);
-	}
-	return(0);
+		pinMode(DHT11PIN,INPUT);
+		piHiPri (20);								// Give this program higher interrupt than std
+		stop_ints = 0;
+	
+		//pullUpDnControl (DHT11PIN, PUD_UP);		// Set data to a HIGH value
+	
+		// Receive bits, wait for interrupts to finish
+		//
+
+		start_time = micros();
+		p_index = 0;								// Initialize index
+		edgeTimeStamp[1] = start_time;
+    	while (1) 
+		{
+			delayMicroseconds(5);
+			time_interval = micros() - start_time;
+			if ( time_interval > 80000 )
+			{
+				if (debug) printf("\n\nERROR: Timeout, p_index: %d, interval: %d uSec\n", 
+					p_index, time_interval);
+				break;
+			}
+			if ( p_index > 41 )
+			{
+				if (debug) printf("\n\nERROR: p_index overflow, p_index: %d, interval: %d uSec\n", 
+					p_index, time_interval);
+				break;
+			}
+		}
+	
+		start_time = 0;								// Reset timer
+		piHiPri (0);
+	
+		linex=0;
+		if (verbose) printf("Printing values, %d found:\n", p_index);
+		for (i=0; i< p_index; i++) 
+		{		
+		// useless transitions are ignored
+		
+			if (i>=1)
+			{  
+				dht11_val[j/8]<<=1;  				// Shift one bit to left
+				if (pulse_array[i] > 100) 			// "0"=50+28 uSec, "1"=50+70uSec
+				{ 
+					dht11_val[j/8]|=1;				// Make lsb 1 (else it remains 0)
+				}
+				j++;  
+			} 
+			if (verbose)
+			{
+				printf("%3d|", pulse_array[i]);
+				if (linex <= 0) {
+					printf("\n");
+					linex=8;
+				}
+				linex--;
+			}
+		}
+		if (verbose) 
+		{	
+			printf("\n");
+			printf("values: ");
+			for (i=0; i<5; i++) {
+				printf("%3d.",dht11_val[i]);
+			}
+			printf("\n");
+  		}
+	
+		// verify checksum and print the verified data  
+	
+		if((j>=40)&&(dht11_val[4]==((dht11_val[0]+dht11_val[1]+dht11_val[2]+dht11_val[3])& 0xFF)))  
+		{  
+			success = 1;
+			printf("%d, humidity: %d.%d; temperature: %d.%d; OK\n",
+				r+1, dht11_val[0], dht11_val[1], dht11_val[2], dht11_val[3]);
+		}  
+		else 
+		{  
+			if (verbose) {
+				printf("%d, humidity: %d.%d; temperature: %d.%d; Checksum failed\n",
+		 			r+1, dht11_val[0], dht11_val[1], dht11_val[2], dht11_val[3]);
+			}
+		}
+		//delay(1100);			// Really necessary?
+	}//success
+	return(1);
 } 
 
 
 /*
  *********************************************************************************
+ * dht11_read_wiring
+ *
+ * Making use of the wiringPiDev library. The function will only return when
+ * reading the sensor is successful
+ *
+ *********************************************************************************
+ */
+int dht11_read_wiring(int r) 
+{
+	//int myTemp        = 0;
+	//int myRelHumidity = 0;
+	int attempts      = 0;
+	int goodReading   = 0;
+	piHiPri (10);
+	while (!goodReading && (attempts++ <= 5)) {
+	
+		usleep(1000*10);
+		if (maxDetectRead (DHT11PIN, dht11_val)) {
+			goodReading = 1;
+		}
+				
+		//if ( readRHT03 (DHT11PIN, &myTemp, &myRelHumidity) == 0) {
+		//	goodReading = 0;		//keep looping and try again
+		//} else {
+		//	goodReading = 1; 		// stop now that it worked
+		//}
+		usleep(1000*500);
+	}
+	piHiPri (0);
+	//printf("Temp: %2.1fF  ",(((((float)myTemp/10)*9)/5)+32));
+	//printf("RH: %2.1f%%\n",((float)myRelHumidity/10));
+	
+	printf("%d, humidity: %d.%d; temperature: %d.%d; OK\n",
+				r+1, dht11_val[0], dht11_val[1], dht11_val[2], dht11_val[3]);
+				
+	return(0);
+}
+
+/*
+ *********************************************************************************
  * dht11_read_old
  *
- * Reading the sensor using the power method. Call the wait routine several times.
+ * Reading the sensor using the brute force method. Call the wait routine several times.
  * this method is more compute intensive than calling the interrupt routine.
  *
  *********************************************************************************
  */ 
-int dht11_read_old()  
+int dht11_read_old(int r)  
 {  
 	uint8_t lststate=HIGH;  
 	uint8_t counter=0;  
-	uint8_t j=0,i,k;
+	uint8_t j,i,k;
 	uint8_t linex;
-	struct timespec tim;
-	tim.tv_sec = 0;
-	tim.tv_nsec = 1000;
+	//struct timespec tim;
+
+	int success = 0;
 	
-	for(i=0;i<5;i++)  
-		dht11_val[i]=0;  							// Initialize result to 0
-	
-	//pullUpDnControl (DHT11PIN, PUD_UP);				// Start with a HIGH value
-	delay(1);										// Wait a ms
-	piHiPri (10);									// Set Higher Priority
-	
-	// Send the request pulse
-   
-	pinMode(DHT11PIN,OUTPUT);  
-	digitalWrite(DHT11PIN,LOW);  
-	delay(24);										// Wait 18 milli seconds
-	digitalWrite(DHT11PIN,HIGH);  
-	delayMicroseconds(25); 							// Pull up 40 uSec ==>> 38 works MUCH better
-  
-	// Switch to input mode 
-	
-	//pullUpDnControl (DHT11PIN, PUD_UP);
-	// Set pin mode to input
-	pinMode(DHT11PIN,INPUT);
-	
-	//
-	// READ LOOP
-	//
-	for( i=0; i<MAX_TIME; i++)  
+	while (!success)
 	{
-		counter=0;  
-		while(digitalRead(DHT11PIN)==lststate){  
-			counter++;  
-			delayMicroseconds(1);  
-			if(counter>=255)  						// break while loop when 255 uSecs no change on pin
+		j = 0;
+		//tim.tv_sec = 0;
+		//tim.tv_nsec = 1000;
+	
+		delay(500);
+		for(i=0;i<5;i++)  dht11_val[i]=0;  			// Initialize result to 0
+	
+		//pullUpDnControl (DHT11PIN, PUD_UP);		// Start with a HIGH value
+		delay(1);									// Wait a ms
+		piHiPri (10);								// Set Higher Priority
+	
+		// Send the request pulse
+   
+		pinMode(DHT11PIN,OUTPUT);  
+		digitalWrite(DHT11PIN,LOW);  
+		delay(24);										// Wait 18 milli seconds
+		digitalWrite(DHT11PIN,HIGH);  
+		delayMicroseconds(25); 							// Pull up 40 uSec ==>> 38 works MUCH better
+  
+		// Switch to input mode 
+	
+		// pullUpDnControl (DHT11PIN, PUD_UP);
+		// Set pin mode to input
+		pinMode(DHT11PIN,INPUT);
+	
+		//
+		// READ LOOP
+		//
+		for( i=0; i<MAX_TIME; i++)  
+		{
+			counter=0;  
+			while(digitalRead(DHT11PIN)==lststate){  
+				counter++;  
+				delayMicroseconds(1);  
+				if(counter>=255)  					// break while loop when 255 uSecs no change on pin
 				break;  
-		} 
+			} 
 	
-		//lststate=digitalRead(DHT11PIN);  
-		if(counter>=255)
-			break;									// break for loop
-		else
-			lststate = 1 - lststate;
+			//lststate=digitalRead(DHT11PIN);  
+			if(counter>=255)
+				break;									// break for loop
+			else
+				lststate = 1 - lststate;
 			
-		// top 3 transistions (pulses) are ignored as are the
-		// odd numbers which all should be around 50 uSec each 
-		if((i>=4)&&(i%2==0))
-		{  
-			dht11_val[j/8]<<=1;  
-			if(counter>16) {
-				dht11_val[j/8]|=1;
+			// top 3 transistions (pulses) are ignored as are the
+			// odd numbers which all should be around 50 uSec each 
+			if((i>=4)&&(i%2==0))
+			{  
+				dht11_val[j/8]<<=1;  
+				if(counter>16) {
+					dht11_val[j/8]|=1;
+				}
+				pulse_array[i]=counter;
+				j++;  
+			} 
+			else {
+				pulse_array[i]=counter;
 			}
-			pulse_array[i]=counter;
-			j++;  
-		} 
-		else {
-			pulse_array[i]=counter;
 		}
-	}
 	
-	//
-	// RESULTS SECTION
-	//
-	printf("\n");
-  
-  	linex = 3;
-  	for (k=0; k< i; k++) {
-		printf("%3d ",pulse_array[k]);
+		//
+		// RESULTS SECTION
+		//
 		
-		if (linex <= 0) {
-			linex = 16;
+		if (verbose)
+		{
 			printf("\n");
-		}
-		linex--;
-	}
-	printf("\n");
-	if (j<40) {
-		printf("ERROR: Not 40 bits but %d: ",j);
-		printf("hum:%d.%d | temp:%d.%d\n",dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]);
-		return (EXIT_FAILURE);
-	}
   
-	// verify cheksum and print the verified data  
+  			linex = 3;
+  			for (k=0; k< i; k++) {
+				printf("%3d ",pulse_array[k]);
+		
+				if (linex <= 0) {
+					linex = 16;
+					printf("\n");
+				}
+				linex--;
+			}
+			printf("\n");
+				if (j<40) {
+				printf("ERROR: Not 40 bits but %d: ",j);
+				printf("hum:%d.%d | temp:%d.%d\n",
+				 	dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]);
+				//return (EXIT_FAILURE);
+			}
+		}
+		
+  
+		// verify cheksum and print the verified data  
 	
-	if((j>=40)&&(dht11_val[4]==((dht11_val[0]+dht11_val[1]+dht11_val[2]+dht11_val[3])& 0xFF)))  
-	{  
-		printf("humidity: %d.%d | temperature: %d.%d\n",dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]);  
-	}  
-	else {  
-		printf("Invalid Data: ");
-		printf("hum: %d.%d | temp: %d.%d\n",dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]);
-		return(EXIT_FAILURE);
+		if((j>=40)&&(dht11_val[4]==((dht11_val[0]+dht11_val[1]+dht11_val[2]+dht11_val[3])& 0xFF)))  
+		{  
+			printf("%d, humidity: %d.%d | temperature: %d.%d\n",
+				r+1, dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]); 
+			success = 1; 
+		}  
+		else {  
+			if (verbose) {
+				printf("Invalid Data: ");
+				printf("%d, hum: %d.%d | temp: %d.%d\n",
+					r+1, dht11_val[0],dht11_val[1],dht11_val[2],dht11_val[3]);
+			}
+		}
 	}
-	return(0);
+	return (1);
 } 
 
 
@@ -483,6 +554,7 @@ int main(int argc, char **argv)
 	int i,c;
 	int errflg = 0;
 	int iflg = 0;
+	int wflg = 0;
 	int repeats = 1;
 	
 	char *hostname = "localhost";			// Default setting for our host == this host
@@ -497,8 +569,9 @@ int main(int argc, char **argv)
 	// -p <port> ; Portnumber for daemon socket
 	// -a ; Catch all, find out the protocol yourself
 	// -v ; Verbose, Give detailed messages
+	// -w ; WiringPi mode
 	//
-    while ((c = getopt(argc, argv, ":c:dh:ip:r:stvx")) != -1) {
+    while ((c = getopt(argc, argv, ":c:dh:ip:r:stvw")) != -1) {
         switch(c) {
 
 		case 'c':
@@ -514,6 +587,7 @@ int main(int argc, char **argv)
 		break;
 		case 'i':						// Interrupt (instead of waiting out).
 			iflg=1;
+			if (wflg) errflg++;
 		break;
 		case 'p':						// Port number
             port = optarg;
@@ -530,6 +604,10 @@ int main(int argc, char **argv)
 		break;
 		case 'v':						// Verbose, output long timing/bit strings
 			verbose = 1;
+		break;
+		case 'w':						// Verbose, output long timing/bit strings
+			wflg = 1;
+			if (iflg) errflg++;
 		break;
 		case ':':       				// -f or -o without operand
 			fprintf(stderr,"Option -%c requires an operand\n", optopt);
@@ -595,12 +673,19 @@ int main(int argc, char **argv)
 	for (i=0; i<repeats; i++)  
 	{  
 		if (iflg) {
+		// Use an interrupt routing, less resource consuming
 			dht11_read_int(i);
 		}
+		else if (wflg) {
+		// Make use of the special library for these devices in wiringPI
+			dht11_read_wiring(i);
+			delay (500);
+		}
 		else {
-			dht11_read_old(); 
+		// Use the brute force method and wait all reads out
+			dht11_read_old(i); 
 		}	
-		delay(1500);							// wait 5 secs
+		//delay(1500);							// wait 1.5 secs
 	}
 	
 	exit(EXIT_SUCCESS); 
