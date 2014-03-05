@@ -4,6 +4,8 @@ This is the repository for LamPI, a RaspberryPI controller for 433MHz receivers.
 (c) Maarten Westenberg (aka Platenspeler)
 mw12554 @ hotmail.com
 
+Project Documentation: http://platenspeler.github.io
+
 LamPI started as an alternative web front-end for the ICS-1000 controller of klikaanklikuit(.nl).
 However, it has been extended with functionality to use a RaspberryPI with commodity transmitter/receiver and use that as a controller for klikaanklikuit receivers and other brand 433MHz receivers instead. 
 
@@ -31,7 +33,7 @@ Miscellaneous
 7. The C and C++ sources files in receivers/<dir>. In those directories "make" will make the
 	executable, "sudo make install" will install it in /home/pi/exe
 8. A demo directory
-9. A Compiled directory which contains compiled versions of the LamPI-x.y.js file 
+9. A Compiled directory which contains compiled versions of the LamPI-x.y.js file
 
 Design:
 =======
