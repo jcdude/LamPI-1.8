@@ -303,15 +303,16 @@ function fill_database($cfg)
 	// --------------------------------------------------------------
 	// Weather
 	if (!$mysqli->query("DROP TABLE IF EXISTS weather") ||
-    	!$mysqli->query("CREATE TABLE weather(id INT, location CHAR(20), brand CHAR(20), address CHAR(8), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8) )") )
+    	!$mysqli->query("CREATE TABLE weather(id INT, name CHAR(20), location CHAR(20), brand CHAR(20), address CHAR(20), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8), rainfall CHAR(8) )") )
 	{
     	echo "Table creation weather failed: (" . $mysqli->errno . ") " . $mysqli->error;
 	}
-	// Insert Brands
+	// Insert weather data
 	for ($i=0; $i < count($weather); $i++)
 	{
-		if (!$mysqli->query("INSERT INTO weather (id, location, brand, address, channel, temperature, humidity, windspeed, winddirection ) VALUES ('" 
+		if (!$mysqli->query("INSERT INTO weather (id, name, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rainfall ) VALUES ('" 
 					. $weather[$i][id]. "','" 
+					. $weather[$i][name]. "','"
 					. $weather[$i][location]. "','"
 					. $weather[$i][brand]. "','"
 					. $weather[$i][address]. "','"
@@ -319,7 +320,8 @@ function fill_database($cfg)
 					. $weather[$i][temperature]. "','"
 					. $weather[$i][humidity]. "','"
 					. $weather[$i][windspeed]. "','"
-					. $weather[$i][winddirection]. "')"
+					. $weather[$i][winddirection]. "','"
+					. $weather[$i][rainfall]. "')"
 					) 
 			)
 		{
@@ -417,11 +419,13 @@ function print_database($cfg)
 	// weather
 	echo("Count of weather: " . count($weather) . "\n");
 	for ($i=0; $i < count($weather); $i++) {
-		echo("index: $i id: ".$weather[$i][id].", location: ".$weather[$i][location]
+		echo("index: $i id: ".$weather[$i][id]
+				.", name: ".$weather[$i][name].", location: ".$weather[$i][location]
 				.", brand: ".$weather[$i][brand].", address: ".$weather[$i][address]
 				.", channel: ".$weather[$i][channel].", temperature: ".$weather[$i][temperature]
 				.", humidity: ".$weather[$i][humidity].", windspeed: ".$weather[$i][windspeed]
-				.", winddirection: ".$weather[$i][winddirection]."\n");
+				.", winddirection: ".$weather[$i][winddirection]
+				.", rainfall: ".$weather[$i][rainfall]."\n");
 	}
 	echo("\n");
 	
@@ -462,6 +466,7 @@ function read_weatherdb($fname)
 			// I you like to add more field, make sure you do with the MSQL function below as well.
 			'id' => $i,
 			'timestamp' => $yr."-".$mon."-".$day." ".$hr.":".$min.":".$sec ,
+			'name' => "",
 			'location'  => "",					
 			'brand'  => "",
 			'address'  => $address,
@@ -470,7 +475,7 @@ function read_weatherdb($fname)
 			'humidity'  => $humidity,
 			'windspeed'  => "",
 			'winddirection' => "",
-			'rain' => ""
+			'rainfall' => ""
 		);
 		$weatherdb[] = $weathr;
 		//echo "Record: ".$i.", timestamp: ".$weathr['timestamp'].", address: ".$weathr['address']
@@ -510,7 +515,7 @@ function fill_weatherdb($weatherdb)
 	// Please note that drop command needs special permissions 
 	
 	if (!$mysqli->query("DROP TABLE IF EXISTS weatherdb") ||
-    	!$mysqli->query("CREATE TABLE weatherdb(id INT, timestamp CHAR(20), location CHAR(20), brand CHAR(20), address CHAR(8), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8), rain INT )") )
+    	!$mysqli->query("CREATE TABLE weatherdb(id INT, timestamp CHAR(20), name CHAR(20), location CHAR(20), brand CHAR(20), address CHAR(20), channel CHAR(8), temperature CHAR(8), humidity CHAR(8), windspeed CHAR(8), winddirection CHAR(8), rain INT )") )
 	{
     	echo "Table creation weatherdb failed: (" . $mysqli->errno . ") " . $mysqli->error;
 	}
@@ -522,7 +527,8 @@ function fill_weatherdb($weatherdb)
 		if (!$mysqli->query("INSERT INTO weatherdb (id, timestamp, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rain ) VALUES ('" 
 					. $weatherdb[$i][id]. "','" 
 					. $weatherdb[$i]['timestamp']. "','"
-					. $weatherdb[$i]['location']. "','"
+					. $weatherdb[$i][name]. "','"
+					. $weatherdb[$i][location]. "','"
 					. $weatherdb[$i][brand]. "','"
 					. $weatherdb[$i][address]. "','"
 					. $weatherdb[$i][channel]. "','"
@@ -530,7 +536,7 @@ function fill_weatherdb($weatherdb)
 					. $weatherdb[$i][humidity]. "','"
 					. $weatherdb[$i][windspeed]. "','"
 					. $weatherdb[$i][winddirection]. "','"
-					. $weatherdb[$i][rain]. "')"
+					. $weatherdb[$i][rainfall]. "')"
 					) 
 			)
 		{
@@ -555,6 +561,7 @@ function print_weatherdb($weatherdb)
 	{
 		echo("index: $i id: ".$weatherdb[$i]['id']
 				.", location: ".$weatherdb[$i]['location']
+				.", name: ".$weatherdb[$i][name]
 				.", brand: ".$weatherdb[$i][brand]
 				.", address: ".$weatherdb[$i][address]
 				.", channel: ".$weatherdb[$i][channel]

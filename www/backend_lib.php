@@ -97,6 +97,7 @@ function load_database()
 	$controllers = array();
 	$brands = array();
 	$weather = array();
+	$weatheron = array();
 	
 	$mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
 	if ($mysqli->connect_errno) {
@@ -161,7 +162,7 @@ function load_database()
 	}
 	mysqli_free_result($query);
 	
-	$sqlCommand = "SELECT id, location, brand, address, channel, temperature, humidity, windspeed, winddirection FROM weather";
+	$sqlCommand = "SELECT id, name, location, brand, address, channel, temperature, humidity, windspeed, winddirection rainfall FROM weather";
 	$query = mysqli_query($mysqli, $sqlCommand) or die (mysqli_error());
 	while ($row = mysqli_fetch_assoc($query)) { 
 		$weather[] = $row ;
@@ -177,6 +178,7 @@ function load_database()
 	$config ['controllers']= $controllers;
 	$config ['brands']= $brands;
 	$config ['weather']= $weather;
+	$config ['weatheron']= $weather;
 	
 	mysqli_close($mysqli);
 	$apperr = "";										// No error
@@ -767,7 +769,7 @@ function load_weatherdb()
 		return(-1);
 	}
 	
-	$sqlCommand = "SELECT id, timestamp, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rain FROM weatherdb";
+	$sqlCommand = "SELECT id, timestamp, brand, location, brand, address, channel, temperature, humidity, windspeed, winddirection, rainfall FROM weatherdb";
 	$query = mysqli_query($mysqli, $sqlCommand) or die (mysqli_error());
 	while ($row = mysqli_fetch_assoc($query)) { 
 		$weatherdb[] = $row ;

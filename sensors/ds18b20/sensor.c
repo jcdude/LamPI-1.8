@@ -404,6 +404,8 @@ int main(int argc, char **argv)
 							fprintf(stderr,"socket write error\n");
 						}	
 						socktcnt++;
+						delay(200);
+						
 						if (verbose) printf("Buffer sent to Socket: %s\n",snd_buf);
 					}
 					else {

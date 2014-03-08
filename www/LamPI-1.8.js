@@ -199,6 +199,8 @@ var brands={};			// All brands of equipment that is recognized by the daemon
 var handsets={};		// Handsets or transmitters of code. Action/Impuls, Klikaanklikuit supported
 var weather={};			// The administration of weather receivers, and their last values
 var weatherdb={};		// An array with ALL historical values for the weather station (Ouch)
+var weatheron={};		// determines which fields of the weather record are used for THIS sensor
+						// It is used to fill and display the dials in the weather screen
 var settings={};		// Set debug level and backup/restore the configuration
 
 // ---------------------------------------------------------------------------------
@@ -1371,6 +1373,7 @@ function init_websockets() {
 				// Next versions of the GUI should allow ore dynamic specification of sensors
 				case 'weather':
 					var location;
+					var name;
 					var address		= rcv.address;
 					var channel		= rcv.channel;
 					var temperature = rcv.temperature;
@@ -1378,7 +1381,10 @@ function init_websockets() {
 					var brand		= rcv.brand;
 					var windspeed   = rcv.windspeed;
 					var winddirection = rcv.winddirection;
+					//var rainfall = rcv.rainfall;
 					var j;
+					
+					// Compare address and channel to identify a weather sensor
 					for (j = 0; j<weather.length; j++ )
 					{
        					if (( weather[j]['address'] == address ) &&
@@ -1397,21 +1403,18 @@ function init_websockets() {
 						weather[j]['humidity']=humidity;
 						weather[j]['windspeed']=windspeed;
 						weather[j]['winddirection']=winddirection;
-						location = weather[j]['location'];
+						location = weather[j]['location']; // XXX why ????
 						var msg="";
-						for (j=0;j<weather.length;j++)
-						{
-							msg += "Weather @ "+weather[j]['location'];
+						// Only send for the just received sensor
+						//for (j=0;j<weather.length;j++)
+						//{
+							msg += "Weather "+weather[j]['name']+"@ "+weather[j]['location'];
 							msg += ": temp: "+weather[j]['temperature'];
 							msg += ", humi: "+weather[j]['humidity']+"%<br\>";
 							console.log("Weather @ "+weather[j]['location']+": temp: "+weather[j]['temperature']
 								+", humi: "+weather[j]['humidity']+"%");
-						}
-						// If the weather screen is visible at the moment ...
-						//if (s_screen == 'weather')
-						//{
-						//	activate_weather(s_weather_id);	
 						//}
+
 						message(msg);
 					}
 				break;
@@ -2049,9 +2052,11 @@ function init_menu(cmd)
 		+ '<tr class="switch"><td><input type="submit" id="M3" value= "Timers" class="hm_button"></td>'
 		+ '<tr class="switch"><td><input type="submit" id="M4" value= "Handsets" class="hm_button"></td>'
 		;
+		// Do we have weather definitions in database.cfg file?
 		if (weather.length > 0) {
 			but += '<tr class="switch"><td><input type="submit" id="M6" value= "Weather" class="hm_button"></td>'
 		}
+		// Do we have energy records in database.cfg?
 		but += '<tr><td></td>'
 		+ '<tr><td></td>'
 		+ '<tr class="switch"><td><input type="submit" id="M5" value= "Config" class="hm_button"></td>'
@@ -4512,8 +4517,12 @@ function activate_setting(sid)
 
 // --------------------------------- ACTIVATE WEATHER -------------------------------------
 // At the moment I do have 3 temperature/humidity sensors.
-// It os quite good possible to config the sceen so that for 2 or 4 sensors
-// we will have a good layout on the screen.
+// It os quite good possible to config the sceen so that for 2 or 4 or 6 sensors
+// With 3 we will have a good layout on the screen, otherwise we'll scroll.
+//
+// In next release of LamPI, we should sort the sensors in locations... as we do with
+// rooms. These will not so much the real physical location (probably is), but will be
+// container to assure we have the sensors grouped together as we want...
 //
 function activate_weather(wid)
 {
@@ -4528,9 +4537,15 @@ function activate_weather(wid)
 	var table = $( "#gui_weather" ).children();		// to add to the table tree in DOM
 
 	var offbut, onbut;
-	var wl = weather.length;
+	var wl = weather.length;						// Determines the number of dials on screen
 	var buf = '<tbody>' ;
 	var wi = 100/wl;
+
+	// AT the moment we only do temperature and humidity. We can test for other fields here
+	// so that we can fill more rows with dial canvas for those fields (e.g. windspeed).
+	// XXX placeholder
+	
+	// Temperature, first row of dials	
 	buf += '<tr>';
 	for (var i=0; i< wl; i++) {
 		buf += '<td width="'+wi+'%">';
@@ -4539,6 +4554,8 @@ function activate_weather(wid)
 	}
 	buf += '</tr>';
 	
+	// Humidity
+	// This is the second row, with the dials for humidity
 	buf += '<tr>';
 	for (var i=0; i< wl; i++) {
 		var canv = 'canvasRadial'+(wl+i+1)+'';
@@ -4548,6 +4565,8 @@ function activate_weather(wid)
 	}
 	buf += '</tr>';
 	buf += '</tbody></table>';
+	
+	// XXX for windspeed etc. if the row dimensions are larger than 2
 	
 	$(table).append(buf);							// Display the table with canvas
 	//$( "#gui_weather" ).append( buf );
@@ -4604,9 +4623,15 @@ function activate_weather(wid)
 								threshold: 30,
                             	lcdVisible: true
                         });
+			radial[j].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
+			radial[j].setValueAnimated(weather[j]['temperature']);
+			radial[j].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
 			
 			// humidity radial gauges
-			radial[j+wl] = new steelseries.RadialBargraph('canvasRadial'+(j+wl+1), {
+			if (weatheron[j]['humidity'] == "1")
+			{
+				console.log("weatheron "+j+" is 1");
+				radial[j+wl] = new steelseries.RadialBargraph('canvasRadial'+(j+wl+1), {
                             	gaugeType: steelseries.GaugeType.TYPE4,
                             	size: 201,
                             	valueGradient: valGrad,
@@ -4615,26 +4640,35 @@ function activate_weather(wid)
                             	unitString: 'Humidity %',
                             	lcdVisible: true
                         });
-			radial[j].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
-			radial[j].setValueAnimated(weather[j]['temperature']);
-			radial[j].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
-			
-			radial[j+wl].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
-			radial[j+wl].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
-			radial[j+wl].setValueAnimated(weather[j]['humidity']);
+				radial[j+wl].setFrameDesign(steelseries.FrameDesign.GLOSSY_METAL);
+				radial[j+wl].setBackgroundColor(steelseries.BackgroundColor.BRUSHED_METAL);
+				radial[j+wl].setValueAnimated(weather[j]['humidity']);
+			}
+			else {
+				console.log("weatheron "+j+" is 0");
+			}
 		}
 		
 		// Once every 2 seconds we update the meters based on the current
 		// value of the weather array (which might change due to incoming messages
 		// over websockets.
 		var id;
-		id = setInterval(function(){
+		id = setInterval(function()
+		{
 			// Do work if we are in the weather screen
 			if (s_screen == "weather" )
 			{
 				for (var j=0; j< wl; j++) {
 					radial[j].setValueAnimated(weather[j]['temperature']); 
-					radial[j+wl].setValueAnimated(weather[j]['humidity']);
+					if (weatheron[j]['humidity'] == "1") {
+						radial[j+wl].setValueAnimated(weather[j]['humidity']);
+					}
+					if (weatheron[j]['windspeed'] == "1") {
+						radial[j+wl].setValueAnimated(weather[j]['windspeed']);
+					}
+					if (weatheron[j]['winddirection'] == "1") {
+						radial[j+wl].setValueAnimated(weather[j]['winddirection']);
+					}
 				}
 				// Make a new connection and start registering the various actions,
 				// State 0: Not ready (yet), connection to e established
@@ -4653,7 +4687,7 @@ function activate_weather(wid)
 			{
 				// Kill this timer temporarily
 				clearInterval(id);
-				message("Interval Cleared");
+				message("Suspend Dials");
 			}
 		}, 2000);		// 2 seconds (in millisecs)
 		
@@ -5199,7 +5233,8 @@ function load_database(dbase_cmd)
 					handsets = data.appmsg['handsets'];
 					settings = data.appmsg['settings'];
 					brands = data.appmsg['brands'];
-					weather = data.appmsg['weather'];
+					weather = data.appmsg['weather'];		// we want the id and name values
+					weatheron = data.appmsg['weatheron'];	// which fields are on 0/1 off/on values
 					
 					// For all rooms write a button to the document
 					$("#gui_header").append('<table border="0">');	// Write table def to DOM
