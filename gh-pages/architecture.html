@@ -21,7 +21,7 @@
 <h1><a name="maincomponents"></a>Main Components and Relations</h1>
 <p>LamPI consists of a few major components as outlined in the pisture below (picture needs some updating). Starting with release 1.7 all communication betweeen the front-end and the controlling daemon takes place over websockets. Of course, when you work with the ICS-1000 this will be an exception.</p>
 <p><img src="architecture/architecture.gif" width="960" height="720"></p>
-<p>There are advantages and disadvantages wrt to the approach chosen for the communication between frontnd and LamPI-daemon backend.</p>
+<p>There are advantages and disadvantages wrt to the approach chosen for the communication between frontend and LamPI-daemon backend.</p>
 <p>The disadvantage is that with the old plain socket communication and supporting ajax PHP scripts such as backend_rasp.php all looked much easier and developer is in control. Only you think you are, as most of the ajax calls are asynchronous in nature, and the backend PHP scripts run only once so information that is not directy available from the LamPI-daemon will not be received and results in a time-out.</p>
 <p>Webserver transmission is rather simple, once the socket is open you're good to go. Incoming messages are more complicated, they arriv asynchronously to the LamPI-x.y.js client and so we must make sure that these messages are delivered to the correct handler in the program.</p>
 <p>As good example is what we do with incoming startus changes for devices in the program.</p>
